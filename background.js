@@ -1,5 +1,7 @@
 'use strict';
 
+importScripts('lib/drive-bg.js');
+
 const CONTENT_FILES = [
   'lib/zip.js',
   'lib/idml.js',
@@ -8,6 +10,7 @@ const CONTENT_FILES = [
   'lib/defaults.js',
   'lib/layout.js',
   'lib/markup.js',
+  'lib/fonts.js',
   'content/main.js'
 ];
 

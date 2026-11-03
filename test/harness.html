@@ -41,6 +41,7 @@
 <script src="../lib/defaults.js"></script>
 <script src="../lib/layout.js"></script>
 <script src="../lib/markup.js"></script>
+<script src="../lib/fonts.js"></script>
 <script src="../content/main.js"></script>
 <script>
   const params = new URLSearchParams(location.search);
@@ -62,7 +63,17 @@
       }
       out.builtinMs = Math.round(performance.now());
       if (params.get('tpl') !== 'builtin') {
-        const buf = await (await fetch('fixtures/sample.idml')).arrayBuffer();
+        if (params.get('start')) PTApp.state.opts.startPage = parseInt(params.get('start'), 10);
+        const buf = await (await fetch('fixtures/' + (params.get('idml') || 'sample.idml'))).arrayBuffer();
+        if (params.get('fonts')) {
+          const listing = await (await fetch('fixtures/private/fonts/')).text();
+          const names = Array.from(listing.matchAll(/href="([^"]+\.(?:otf|ttf|OTF|TTF))"/g)).map(m => m[1]);
+          const files = [];
+          for (const n of names) files.push(new File([await (await fetch('fixtures/private/fonts/' + n)).arrayBuffer()], decodeURIComponent(n)));
+          out.fontFiles = files.length;
+          await PTApp.importFonts(files);
+          await waitIdle();
+        }
         const t1 = performance.now();
         await PTApp.importFile(new File([buf], 'sample.idml'));
         await waitIdle();
@@ -75,6 +86,8 @@
         out.blocks = S.doc.blocks.map(b => b.kind + ':' + b.key).join(' ');
         out.folios = S.pages.slice(0, 30).map(p => p.number + ' ' + p.side + ' [' + Array.from(p.el.querySelectorAll('.pt-mframe')).map(f => f.textContent.trim()).join(' / ') + ']');
         out.fonts = S.fonts;
+        out.sections = S.pages.flatMap(p => Array.from(p.el.querySelectorAll('.pt-section .pt-sec-num, .pt-comp-practice')).map(e => p.number + ':' + e.textContent.slice(0, 24)));
+        out.usedKeys = S.usedKeys;
       }
       if (params.get('drawer') === '0' && shadowRoot().querySelector('.pt-drawer.pt-show')) shadowRoot().querySelector('.pt-btn[title^="스타일 매핑"]').click();
       if (params.get('grid')) { PTApp.state.opts.grid = true; await PTApp.relayout(); }

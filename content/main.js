@@ -4,14 +4,27 @@
   if (window.__preTypesetLoaded) return;
   window.__preTypesetLoaded = true;
 
-  const { PTIdml, PTDocs, PTStyle, PTLayout, PTDefaults, PTMarkup } = globalThis;
+  const { PTIdml, PTDocs, PTStyle, PTLayout, PTDefaults, PTMarkup, PTFonts } = globalThis;
   const PX_PER_PT = 96 / 72;
   const MM = 25.4 / 72;
 
   const KEY_LABEL = {
-    title: '제목 (Title)', subtitle: '부제목', h1: '제목 1', h2: '제목 2', h3: '제목 3', h4: '제목 4', h5: '제목 5', h6: '제목 6',
-    normal: '일반 텍스트', li: '글머리 목록', ol: '번호 목록', code: '코드', box: '박스 (1×1 표)', table: '표',
-    footnote: '각주', image: '그림', note: 'NOTE·TIP 박스'
+    title: '제목 (Title)', subtitle: '부제목',
+    h1: '장 제목 (제목 1)', chapterNum: '장 번호', goal: '학습 목표', toc: '장 공부 내용 표',
+    h2: '절 제목 (제목 2)', sectionNum: '절 번호',
+    h3: '제목 3', h4: '제목 4', h5: '제목 5', h6: '제목 6',
+    normal: '일반 텍스트', li: '글머리 목록', liLast: '글머리 목록 (끝)', ol: '번호 목록', olLast: '번호 목록 (끝)',
+    code: '코드', box: '박스 (1×1 표)', table: '표 본문', tableHead: '표 머리', footnote: '각주', image: '그림', caption: '그림 설명',
+    note: 'NOTE·TIP', coachTitle: '1:1 코칭 제목', coach: '1:1 코칭 본문', coachLast: '1:1 코칭 본문 (끝)',
+    prompt: '프롬프트', promptLast: '프롬프트 (끝)', ai: 'AI 답변', aiLast: 'AI 답변 (끝)',
+    summaryTitle: '핵심 요약 제목', summary: '핵심 요약 목록', practice: '바로 실습 제목', warmup: '워밍업'
+  };
+  // 매핑이 없을 때 차례로 빌려 쓸 키
+  const KEY_FALLBACK = {
+    liLast: ['li'], olLast: ['ol', 'li'], ol: ['li'], tableHead: ['table'], caption: ['image'],
+    coachTitle: ['box'], coach: ['box'], coachLast: ['coach', 'box'],
+    prompt: ['box'], promptLast: ['prompt', 'box'], ai: ['box'], aiLast: ['ai', 'box'],
+    summaryTitle: ['h3'], summary: ['li'], practice: ['h3'], warmup: ['box'], goal: ['normal'], toc: ['table']
   };
   const KEY_ORDER = Object.keys(KEY_LABEL);
   const HEADING_KEYS = new Set(['title', 'subtitle', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
@@ -84,6 +97,9 @@
 .pt-btn svg{width:15px;height:15px;display:block}
 .pt-sep{width:1px;height:18px;background:#dadce0;flex:none}
 .pt-zoom{font-size:11px;color:#5f6368;min-width:34px;text-align:center;flex:none}
+.pt-drive-row{display:none;gap:6px;padding:8px 10px;background:#f8f9fa;border-bottom:1px solid #dadce0;flex:none}
+.pt-drive-row.pt-show{display:flex}
+.pt-drive-input{flex:1;min-width:0;height:28px;border:1px solid #dadce0;border-radius:6px;padding:0 8px;font:inherit;font-size:12px}
 .pt-drawer{flex:none;max-height:55%;overflow:auto;background:#fff;border-bottom:1px solid #dadce0;padding:10px 12px;display:none}
 .pt-drawer.pt-show{display:block}
 .pt-drawer h4{margin:12px 0 6px;font-size:12px;color:#5f6368;font-weight:600}
@@ -166,13 +182,18 @@
 .pt-tag-inv{background:#fff;color:var(--accent)}
 .pt-step{color:var(--accent);font-family:var(--sans);font-weight:700;letter-spacing:-.02em}
 .pt-comp-step{text-indent:0!important}
-.pt-comp-note{background:#efefef;text-indent:0!important;padding:3pt 6pt!important;margin:3pt 0 6pt}
+.pt-comp-note{text-indent:0!important;margin:3pt 0 6pt}
+.pt-comp-note.pt-um{background:#efefef;padding:3pt 6pt!important}
+.pt-comp-note:not(.pt-um){background-color:#f0f0f0;padding-top:3pt!important;padding-bottom:3pt!important}
 .pt-comp-practice{text-indent:0!important}
-.pt-comp-practice .pt-tag{font-size:.8em;padding:.05em .55em;border-radius:3pt 0 3pt 0}
+.pt-comp-practice .pt-tag{font-size:.8em;padding:.05em .55em;border-radius:3pt 0 3pt 0;color:#fff!important}
+.pt-comp-practice{color:var(--accent)!important;background:none!important}
 .pt-float{float:right;width:27%;margin:0 0 4pt 8pt;padding:0!important;text-indent:0}
 .pt-float img{width:100%}
 /* 컨테이너 공통 */
-.pt-c{text-indent:0!important;padding-left:8pt!important;padding-right:8pt!important;border-left:.75pt solid transparent;border-right:.75pt solid transparent}
+.pt-c{text-indent:0!important;border-left:.75pt solid transparent;border-right:.75pt solid transparent}
+.pt-c.pt-um{padding-left:8pt!important;padding-right:8pt!important}
+.pt-c:not(.pt-um){padding-right:6pt!important}
 .pt-c.pt-cfirst{margin-top:8pt}
 .pt-c.pt-clast{margin-bottom:8pt;padding-bottom:6pt!important}
 .pt-col>.pt-c.pt-first{margin-top:0}
@@ -183,12 +204,13 @@
 /* 1:1 코칭 */
 .pt-c-coach{border-color:var(--accent)}
 .pt-c-coach.pt-clast{border-bottom:.75pt solid var(--accent)}
-.pt-c-coach.pt-comp-ctitle{background:var(--accent);color:#fff;border-radius:5pt 5pt 0 0;font-weight:700}
+.pt-c-coach.pt-comp-ctitle{border-radius:5pt 5pt 0 0;background-color:var(--accent);color:#fff}
+.pt-c-coach.pt-comp-ctitle.pt-um{font-weight:700}
 .pt-c-coach.pt-comp-ctitle .pt-clabel{display:inline-block;background:#fff;color:var(--accent);padding:0 .45em;border-radius:2pt;margin-right:.4em}
 .pt-c-coach.pt-comp-ctitle+.pt-c-coach{padding-top:5pt!important}
 /* 프롬프트 / AI 말풍선 */
-.pt-c-prompt{background:var(--pale)}
-.pt-c-ai{background:var(--soft)}
+.pt-c-prompt.pt-um{background:var(--pale)}
+.pt-c-ai.pt-um{background:var(--soft)}
 .pt-c-prompt.pt-cfirst,.pt-c-ai.pt-cfirst{border-radius:6pt 6pt 0 0}
 .pt-c-prompt.pt-clast,.pt-c-ai.pt-clast{border-radius:0 0 6pt 6pt}
 .pt-c-prompt.pt-cfirst.pt-clast,.pt-c-ai.pt-cfirst.pt-clast{border-radius:6pt}
@@ -201,13 +223,15 @@
 .pt-c-box.pt-cfirst{border-top:.75pt solid #bbb}
 .pt-c-box.pt-clast{border-bottom:.75pt solid #bbb}
 /* 핵심 요약 */
-.pt-comp-summary-title{clear:both;margin-top:10pt;padding:3pt 8pt!important;background:var(--accent);color:#fff;font-family:var(--sans);border-radius:5pt 5pt 0 0;text-indent:0!important}
+.pt-comp-summary-title{clear:both;margin-top:10pt;padding:3pt 8pt!important;background:var(--accent);color:#fff!important;border-radius:5pt 5pt 0 0;text-indent:0!important}
+.pt-comp-summary-title.pt-um{font-family:var(--sans)}
 .pt-c-summary{background:var(--pale);border-color:var(--accent)}
 .pt-c-summary.pt-clast{border-bottom:.75pt solid var(--accent)}
 .pt-comp-summary-title+.pt-c-summary{padding-top:5pt!important}
 /* 절 배너 */
 .pt-section{display:flex;align-items:stretch;background:var(--soft);border-radius:0 0 12pt 0;margin:0 0 12pt;padding:0}
-.pt-sec-num{flex:none;font-family:var(--sans);font-weight:300;font-size:26pt;line-height:1;color:var(--accent);padding:12pt 10pt 8pt 8pt;letter-spacing:-.03em;display:flex;align-items:center}
+.pt-sec-num{flex:none;line-height:1!important;color:var(--accent)!important;padding:10pt 10pt 6pt 8pt!important;display:flex;align-items:center;text-indent:0!important;background:none!important}
+.pt-sec-num.pk-sectionNum{font-family:var(--sans)}
 .pt-sec-box{flex:1;display:flex;align-items:center;gap:6pt;background:var(--accent);border-radius:12pt 0 12pt 0;padding:8pt 10pt}
 .pt-sec-title{flex:1;color:#fff!important;padding:0!important;margin:0;text-indent:0!important;background:none!important}
 .pt-sec-meta{flex:none;display:flex;flex-direction:column;gap:3pt;font-family:var(--sans);font-size:6.5pt;color:#fff;text-align:right}
@@ -220,13 +244,14 @@
 .pt-chapter{position:absolute;inset:0;font-family:var(--sans);overflow:hidden}
 .pt-chapter-0{background:var(--accent);color:#fff}
 .pt-chapter-1{background:var(--accent)}
-.pt-ch-num{position:absolute;left:14%;top:16%;font-size:96pt;font-weight:100;line-height:1;letter-spacing:-.04em}
-.pt-ch-num span{font-size:22pt;font-weight:700;margin-left:6pt;letter-spacing:0}
+.pt-ch-num{position:absolute;left:14%;top:16%;font-size:96pt!important;line-height:1!important;letter-spacing:-.04em;color:#fff!important;padding:0!important;text-align:left!important}
+.pt-ch-num span{font-family:var(--sans);font-size:22pt;font-weight:700;margin-left:6pt;letter-spacing:0}
 .pt-ch-rule{position:absolute;left:14%;right:0;top:41%;border-top:.75pt solid rgba(255,255,255,.8)}
-.pt-ch-goal{position:absolute;left:14%;right:14%;top:50%;color:#fff!important;text-indent:0!important;padding:0!important;font-size:8.5pt!important;line-height:1.75!important}
+.pt-ch-goal{position:absolute;left:14%;right:14%;top:50%;color:#fff!important;text-indent:0!important;padding:0!important;font-family:var(--sans)!important;font-weight:500!important;font-size:8.5pt!important;line-height:1.75!important}
 .pt-ch-goal-text{margin-top:6pt}
 .pt-ch-panel{position:absolute;left:0;right:8%;top:6%;bottom:6%;background:var(--soft);border-radius:0 18pt 18pt 0}
-.pt-ch-title{position:absolute;left:10%;right:14%;top:22%;color:var(--accent)!important;text-align:right!important;text-align-last:right!important;padding:0!important;font-size:20pt!important;line-height:1.3!important;background:none!important}
+.pt-ch-title{position:absolute;left:10%;right:14%;top:22%;color:var(--accent)!important;padding:0!important;background:none!important}
+.pt-ch-title.pk-h1{text-align:right!important;text-align-last:right!important;font-size:20pt!important;line-height:1.3!important}
 .pt-ch-rule2{position:absolute;left:0;right:8%;top:41%;border-top:.75pt solid var(--accent)}
 .pt-ch-toc{position:absolute;left:8%;right:14%;bottom:12%;background:#fff}
 .pt-ch-toc .pt-table{font-size:7pt}
@@ -235,6 +260,7 @@
 `;
 
   const ICON = {
+    drive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z"/><path d="M8.5 3.5l6 10.5M15.5 3.5L9.5 14M2.5 14h19"/></svg>',
     upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
     spread: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2.5" y="5" width="9.5" height="14" rx="1"/><rect x="12" y="5" width="9.5" height="14" rx="1"/></svg>',
@@ -264,6 +290,11 @@
     ui.zoomLbl = h('span', { class: 'pt-zoom' });
     ui.gearBtn = iconBtn('gear', '스타일 매핑 · 설정', () => { ui.drawer.classList.toggle('pt-show'); ui.gearBtn.classList.toggle('pt-on'); renderDrawer(); });
     const upBtn = iconBtn('upload', 'IDML 내지 올리기', () => ui.file.click());
+    const driveBtn = iconBtn('drive', '구글 드라이브 링크로 불러오기', () => { ui.driveRow.classList.toggle('pt-show'); if (ui.driveRow.classList.contains('pt-show')) ui.driveInput.focus(); });
+    ui.driveInput = h('input', { class: 'pt-drive-input', type: 'url', placeholder: '구글 드라이브 폴더 링크 (IDML + Document fonts)' });
+    ui.driveInput.addEventListener('keydown', e => { if (e.key === 'Enter') importFromDrive(ui.driveInput.value); });
+    ui.driveRow = h('div', { class: 'pt-drive-row' }, ui.driveInput,
+      h('button', { class: 'pt-btn pt-primary', onclick: () => importFromDrive(ui.driveInput.value) }, '불러오기'));
     const refBtn = iconBtn('refresh', '원고 다시 불러오기', () => refresh(true));
     const zoomOut = h('button', { class: 'pt-btn', title: '축소', onclick: () => setZoom(S.opts.zoom / 1.2) }, '−');
     const zoomIn = h('button', { class: 'pt-btn', title: '확대', onclick: () => setZoom(S.opts.zoom * 1.2) }, '+');
@@ -283,9 +314,9 @@
       ui.resize,
       h('div', { class: 'pt-head' },
         h('span', { class: 'pt-logo' }),
-        ui.tplSel, upBtn, h('span', { class: 'pt-sep' }), refBtn, ui.spreadBtn,
+        ui.tplSel, upBtn, driveBtn, h('span', { class: 'pt-sep' }), refBtn, ui.spreadBtn,
         zoomOut, ui.zoomLbl, zoomIn, ui.gearBtn, closeBtn, ui.file),
-      ui.drawer, ui.viewer, ui.foot, ui.measure);
+      ui.driveRow, ui.drawer, ui.viewer, ui.foot, ui.measure);
     ui.panel.querySelector('.pt-logo').innerHTML = 'pre<b>Typeset</b>';
     shadow.append(ui.panel);
     document.documentElement.append(host);
@@ -316,10 +347,12 @@
     // 드래그 앤 드롭
     ui.viewer.addEventListener('dragover', e => { e.preventDefault(); ui.panel.classList.add('pt-dragging'); });
     ui.viewer.addEventListener('dragleave', e => { if (e.target === ui.viewer.querySelector('.pt-drop')) ui.panel.classList.remove('pt-dragging'); });
-    ui.viewer.addEventListener('drop', e => {
+    ui.viewer.addEventListener('drop', async e => {
       e.preventDefault();
       ui.panel.classList.remove('pt-dragging');
-      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      const files = await filesFromDrop(e.dataTransfer);
+      if (files.some(f => /\.(otf|ttf|ttc)$/i.test(f.name))) { importFonts(files); return; }
+      const f = files.find(x => /\.(idml|indd)$/i.test(x.name)) || files[0];
       if (f) importFile(f);
     });
 
@@ -389,6 +422,7 @@
     S.tpl = tpl;
     S.tplId = id;
     prepareStyles();
+    await ensureFonts();
     syncHeader();
     renderDrawer();
   }
@@ -399,7 +433,7 @@
     relayout();
   }
 
-  async function importFile(file) {
+  async function importFile(file, source) {
     if (/\.indd$/i.test(file.name)) {
       showError('.indd 파일은 브라우저에서 읽을 수 없습니다. InDesign에서 [파일 → 다른 이름으로 저장 → 형식: InDesign Markup (IDML)]로 저장한 .idml 파일을 올려 주세요.');
       return;
@@ -414,14 +448,92 @@
       const id = 'tpl_' + Date.now().toString(36);
       tpl.id = id;
       S.index[id] = { name: tpl.name, createdAt: tpl.createdAt };
+      if (source) { tpl.source = source; S.index[id].source = source; }
+      // 같은 Drive 링크로 다시 불러온 경우 이전 템플릿을 대체
+      if (source) for (const [oid, info] of Object.entries(S.index)) {
+        if (oid !== id && info.source === source) { delete S.index[oid]; store.remove([K.tpl(oid)]); }
+      }
       const mapping = PTDefaults.guessMapping(tpl);
       await store.set({ [K.tpl(id)]: tpl, [K.map(id)]: mapping, [K.index]: S.index, [K.doc(S.docId)]: id, [K.last]: id });
       await loadTemplate(id);
       if (!ui.drawer.classList.contains('pt-show')) { ui.drawer.classList.add('pt-show'); ui.gearBtn.classList.add('pt-on'); renderDrawer(); }
       if (S.doc) relayout(); else refresh(true);
+      return true;
     } catch (e) {
       console.error('[preTypeset]', e);
       showError('IDML을 읽지 못했습니다: ' + (e && e.message ? e.message : e));
+      setStatus('', false);
+    }
+  }
+
+  // ---------- 구글 드라이브 ----------
+  // 백그라운드가 로그인된 세션으로 폴더를 읽고 파일을 받아 1MB씩 넘겨준다.
+  function driveCall(msg, onChunk) {
+    return new Promise((resolve, reject) => {
+      const port = chrome.runtime.connect({ name: 'pt-drive' });
+      let buf = null, got = 0;
+      port.onMessage.addListener(m => {
+        if (m.chunk != null) {
+          if (!buf) buf = new Uint8Array(m.size);
+          const bin = atob(m.chunk);
+          for (let i = 0; i < bin.length; i++) buf[got + i] = bin.charCodeAt(i);
+          got += bin.length;
+          if (onChunk) onChunk(got, m.size);
+          return;
+        }
+        port.disconnect();
+        if (!m.ok) reject(new Error(m.error || 'Drive 오류'));
+        else resolve(m.done ? (buf || new Uint8Array(0)) : m);
+      });
+      port.onDisconnect.addListener(() => reject(new Error('백그라운드 연결이 끊겼습니다. 확장을 새로고침해 보세요.')));
+      port.postMessage(Object.assign({ req: 1 }, msg));
+    });
+  }
+
+  const mb = n => (n / 1048576).toFixed(1) + 'MB';
+
+  async function importFromDrive(url) {
+    url = String(url || '').trim();
+    if (!url) return;
+    clearError();
+    try {
+      setStatus('드라이브 폴더 읽는 중…', true);
+      const list = await driveCall({ op: 'list', url });
+      const files = list.files || [];
+      const idmls = files.filter(f => /\.idml$/i.test(f.name));
+      const fonts = files.filter(f => /\.(otf|ttf|ttc)$/i.test(f.name));
+      if (!idmls.length) {
+        const indd = files.find(f => /\.indd$/i.test(f.name));
+        throw new Error(indd ? '폴더에 .indd만 있고 .idml이 없습니다. InDesign에서 IDML로 저장해 같은 폴더에 넣어 주세요.' : '폴더에서 .idml 파일을 찾지 못했습니다. (파일 ' + files.length + '개)');
+      }
+      // 최상위 IDML 우선, "사본"은 뒤로
+      idmls.sort((a, b) => (a.path.split('/').length - b.path.split('/').length) || (/사본|copy/i.test(a.name) - /사본|copy/i.test(b.name)));
+      const pick = idmls[0];
+
+      // 1) 글꼴 먼저 (IDML을 읽을 때 바로 적용되도록)
+      if (fonts.length) {
+        const stored = new Set((await PTFonts.listStored()).map(r => r.file));
+        const need = fonts.filter(f => !stored.has(f.name));
+        const got = [];
+        for (let i = 0; i < need.length; i++) {
+          const f = need[i];
+          const bytes = await driveCall({ op: 'get', id: f.id }, (n, t) => setStatus('글꼴 받는 중 ' + (i + 1) + '/' + need.length + ' · ' + f.name + ' ' + mb(n) + '/' + mb(t), true));
+          got.push(new File([bytes], f.name));
+        }
+        if (got.length) {
+          setStatus('글꼴 ' + got.length + '개 저장 중…', true);
+          // 저장만 하고, 등록은 IDML을 읽은 뒤 필요한 글꼴만 (ensureFonts)
+          await PTFonts.importFiles(got, ['\u0000']);
+        }
+      }
+
+      // 2) IDML
+      const bytes = await driveCall({ op: 'get', id: pick.id }, (n, t) => setStatus('IDML 받는 중 · ' + pick.name + ' ' + mb(n) + '/' + mb(t), true));
+      await importFile(new File([bytes], pick.name), url);
+      ui.driveRow.classList.remove('pt-show');
+    } catch (e) {
+      console.error('[preTypeset] drive', e);
+      showError('드라이브에서 불러오지 못했습니다: ' + (e && e.message ? e.message : e));
       setStatus('', false);
     }
   }
@@ -459,13 +571,17 @@
       table: derive(base, { size: Z * 0.88, leading: L * 0.85, firstIndent: 0, justification: 'LeftAlign' }),
       footnote: derive(base, { size: Z * 0.8, leading: L * 0.8, firstIndent: 0, justification: 'LeftAlign' }),
       image: derive(base, { firstIndent: 0, justification: 'CenterAlign', spaceBefore: L * 0.5, spaceAfter: L * 0.5 }),
-      note: derive(base, { size: Z * 0.85, leading: L * 0.85, firstIndent: 0, justification: 'LeftAlign', spaceBefore: 0, spaceAfter: 0 })
+      note: derive(base, { size: Z * 0.85, leading: L * 0.85, firstIndent: 0, justification: 'LeftAlign', spaceBefore: 0, spaceAfter: 0 }),
+      sectionNum: derive(head(2.6, 0), { weight: 300, leading: Z * 2.6, spaceAfter: 0, color: null }),
+      chapterNum: derive(head(9, 0), { weight: 100, leading: Z * 9, spaceAfter: 0, color: null })
     };
+    S.fallback.sectionNum.font = { family: 'Apple SD Gothic Neo', style: 'Light' };
+    S.fallback.chapterNum.font = { family: 'Apple SD Gothic Neo', style: 'Thin' };
     S.accent = pickAccent();
     ui.panel.style.setProperty('--accent', S.accent);
     let css = '';
     tpl.styles.forEach((s, i) => { css += PTStyle.rulesFor('.ps-' + i, s); });
-    for (const k of KEY_ORDER) css += PTStyle.rulesFor('.pk-' + k, S.fallback[k]);
+    for (const k of Object.keys(S.fallback)) css += PTStyle.rulesFor('.pk-' + k, S.fallback[k]);
     ui.dyn.textContent = css;
 
     // 실제로 쓰이는 스타일(매핑된 것 + 마스터 텍스트)의 글꼴만 확인
@@ -476,32 +592,106 @@
       }
     }
     const fams = new Set();
-    for (const s of used) if (s && s.font && s.font.family) fams.add(s.font.family);
-    S.fonts = Array.from(fams).map(f => ({ family: f, ok: PTStyle.fontAvailable(f) }));
+    const wanted = new Set();
+    const addFont = (fam, style) => {
+      if (!fam) return;
+      fams.add(fam);
+      wanted.add(fam);
+      if (style && !/^regular$/i.test(style)) wanted.add(fam + ' ' + style);
+    };
+    for (const s of used) if (s && s.font) addFont(s.font.family, s.font.style);
+    for (const side of ['left', 'right']) {
+      for (const it of (tpl.master && tpl.master[side]) || []) {
+        for (const p of it.paragraphs || []) {
+          if (p.over && p.over.family) addFont(p.over.family, p.over.style);
+          for (const r of p.runs) if (r.st && r.st.family) addFont(r.st.family, r.st.style);
+        }
+      }
+    }
+    S.wantedFonts = Array.from(wanted);
+    S.fonts = Array.from(fams).map(f => ({ family: f, ok: fontOk(f) }));
     S.missingFonts = S.fonts.filter(f => !f.ok).map(f => f.family);
+  }
+
+  function fontOk(f) {
+    return !!(PTFonts && PTFonts.isRegistered(f)) || PTStyle.fontAvailable(f);
+  }
+
+  // 저장해 둔 글꼴 중 이 템플릿이 쓰는 것을 등록
+  async function ensureFonts() {
+    if (!PTFonts || !S.wantedFonts || !S.wantedFonts.length) return;
+    try {
+      const hit = await PTFonts.ensure(S.wantedFonts);
+      if (hit.length) prepareStyles();
+    } catch (e) { console.warn('[preTypeset] fonts', e); }
+  }
+
+  async function importFonts(files) {
+    if (!PTFonts) return;
+    const list = Array.from(files).filter(f => /\.(otf|ttf|ttc)$/i.test(f.name));
+    if (!list.length) { showError('글꼴 파일(.otf, .ttf)이 없습니다.'); return; }
+    setStatus('글꼴 ' + list.length + '개 읽는 중…', true);
+    try {
+      const added = await PTFonts.importFiles(list, S.wantedFonts);
+      prepareStyles();
+      renderDrawer();
+      setStatus('글꼴 ' + added.length + '개 저장', false);
+      relayout();
+    } catch (e) {
+      showError('글꼴을 읽지 못했습니다: ' + (e && e.message ? e.message : e));
+      setStatus('', false);
+    }
+  }
+
+  // 끌어다 놓은 폴더 안의 파일까지 모은다
+  async function filesFromDrop(dt) {
+    const out = [];
+    const items = Array.from(dt.items || []).map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (!items.length) return Array.from(dt.files || []);
+    const walk = entry => new Promise(resolve => {
+      if (entry.isFile) entry.file(f => { out.push(f); resolve(); }, () => resolve());
+      else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const all = [];
+        const read = () => reader.readEntries(async ents => {
+          if (!ents.length) { for (const e of all) await walk(e); resolve(); return; }
+          all.push(...ents);
+          read();
+        }, () => resolve());
+        read();
+      } else resolve();
+    });
+    for (const e of items) await walk(e);
+    return out;
   }
 
   // 강조색: 옵션 > 제목 스타일 글자색 > 단락 음영색 > 기본 주황
   function pickAccent() {
     if (S.opts.accent) return S.opts.accent;
-    const isBlack = c => !c || /^rgb\((\d+) (\d+) (\d+)\)$/.test(c) && c.match(/\d+/g).every(v => +v < 60);
-    for (const k of ['h2', 'h1', 'h3', 'title']) {
+    // 무채색(검정·흰색·회색)은 강조색 후보에서 뺀다
+    const chromatic = c => {
+      const m = String(c || '').match(/\d+/g);
+      if (!m || m.length < 3) return false;
+      const [r, g, b] = m.slice(0, 3).map(Number);
+      return Math.max(r, g, b) - Math.min(r, g, b) > 60;
+    };
+    for (const k of ['sectionNum', 'h3', 'h2', 'h1', 'title', 'coachTitle']) {
       const id = S.mapping[k];
       const st = id && S.styleById.get(id);
-      if (st && !isBlack(st.color)) return st.color;
+      if (st && chromatic(st.color)) return st.color;
+      if (st && chromatic(st.shading)) return st.shading;
     }
-    for (const st of S.tpl.styles) if (st.shading && !/rgb\((2[3-5]\d) (2[3-5]\d) (2[3-5]\d)\)/.test(st.shading)) return st.shading;
+    for (const st of S.tpl.styles) if (chromatic(st.color)) return st.color;
     return 'rgb(232 105 46)';
   }
 
   function resolveKey(key) {
-    const id = S.mapping[key];
-    if (id && S.styleById.has(id)) return { cls: S.clsById.get(id), desc: S.styleById.get(id), mapped: true };
-    if (key === 'li' || key === 'ol') {
-      const other = S.mapping[key === 'li' ? 'ol' : 'li'];
-      if (other && S.styleById.has(other)) return { cls: S.clsById.get(other), desc: S.styleById.get(other), mapped: true };
+    for (const k of [key].concat(KEY_FALLBACK[key] || [])) {
+      const id = S.mapping[k];
+      if (id && S.styleById.has(id)) return { cls: S.clsById.get(id), desc: S.styleById.get(id), mapped: true, key: k };
     }
-    return { cls: 'pk-' + key, desc: S.fallback[key] || S.fallback.normal, mapped: false };
+    const fk = S.fallback[key] ? key : (KEY_FALLBACK[key] || []).find(k => S.fallback[k]) || 'normal';
+    return { cls: 'pk-' + fk, desc: S.fallback[fk], mapped: false, key: fk };
   }
 
   // ---------- 원고 ----------
@@ -528,13 +718,13 @@
     return new Set(Object.values(S.tpl.variables || {}).filter(v => v.kind === 'style').map(v => v.styleId));
   }
 
-  function tableEl(rows, cls) {
+  function tableEl(rows, cls, headCls) {
     const el = h('table', { class: 'pt-table ' + cls });
     const tb = h('tbody');
-    for (const row of rows) {
+    for (const [ri, row] of rows.entries()) {
       const tr = h('tr');
       for (const c of row) {
-        const td = h('td');
+        const td = h('td', { class: ri === 0 && headCls ? headCls : null });
         if (c.colspan > 1) td.colSpan = c.colspan;
         if (c.rowspan > 1) td.rowSpan = c.rowspan;
         td.innerHTML = c.html;
@@ -549,15 +739,16 @@
   // 장 도비라: 왼쪽 면(장 번호·학습 목표) + 오른쪽 면(장 제목·이 장의 내용)
   function chapterItem(b, bi, vs) {
     const h1 = resolveKey('h1');
-    const body = resolveKey('normal');
-    const tableSt = resolveKey('table');
+    const num = resolveKey('chapterNum');
+    const body = resolveKey('goal');
+    const tableSt = resolveKey('toc');
     return {
       kind: 'fixed', count: 2, startOn: S.opts.chapterSpread === 'odd' ? 'odd' : 'even', bi,
       render(page, k) {
         const wrap = h('div', { class: 'pt-chapter pt-chapter-' + k, 'data-bi': String(bi) });
         if (k === 0) {
           wrap.append(
-            h('div', { class: 'pt-ch-num' }, b.number || '', h('span', null, b.number ? '장' : '')),
+            h('div', { class: 'pt-ch-num ' + num.cls }, b.number || '', h('span', null, b.number ? '장' : '')),
             h('div', { class: 'pt-ch-rule' }));
           if (b.goal) {
             const goal = h('div', { class: 'pt-ch-goal ' + body.cls });
@@ -568,30 +759,39 @@
           const title = h('div', { class: 'pt-ch-title ' + h1.cls });
           title.textContent = b.title;
           wrap.append(h('div', { class: 'pt-ch-panel' }), title, h('div', { class: 'pt-ch-rule2' }));
-          if (b.toc) wrap.append(h('div', { class: 'pt-ch-toc' }, tableEl(b.toc, tableSt.cls)));
+          if (b.toc) wrap.append(h('div', { class: 'pt-ch-toc' }, tableEl(b.toc, tableSt.cls, resolveKey('tableHead').cls)));
         }
-        // 러닝헤드용 표식 (보이지 않음)
-        if (h1.desc.id && vs.has(h1.desc.id)) wrap.append(h('div', { hidden: true, 'data-sid': h1.desc.id, 'data-vt': b.text }));
+        // 러닝헤드용 표식 (보이지 않음): 장 번호·장 제목 변수가 따로 있으면 나눠서
+        const numVar = num.desc.id && vs.has(num.desc.id);
+        if (numVar) wrap.append(h('div', { hidden: true, 'data-sid': num.desc.id, 'data-vt': (b.number ? b.number + '장' : '') }));
+        if (h1.desc.id && vs.has(h1.desc.id)) wrap.append(h('div', { hidden: true, 'data-sid': h1.desc.id, 'data-vt': numVar ? b.title : b.text }));
         page.el.append(wrap);
       }
     };
   }
 
-  function sectionEl(b, st) {
+  function sectionEl(b, st, vs) {
     const el = h('div', { class: 'pt-section' });
+    const num = resolveKey('sectionNum');
     const title = h('div', { class: 'pt-sec-title ' + st.cls }, b.title);
     const meta = h('div', { class: 'pt-sec-meta' });
     if (b.level) meta.append(h('span', { class: 'pt-sec-level' }, '난이도 ' + b.level));
     if (b.date) meta.append(h('span', { class: 'pt-sec-date' }, '학습 날짜'));
-    el.append(h('div', { class: 'pt-sec-num' }, b.number), h('div', { class: 'pt-sec-box' }, title, meta));
+    el.append(h('div', { class: 'pt-sec-num ' + num.cls }, b.number), h('div', { class: 'pt-sec-box' }, title, meta));
+    // 러닝헤드: 절 번호 변수가 따로 있으면 번호/제목을 나눠 기록
+    const numVar = num.desc.id && vs.has(num.desc.id);
+    if (numVar) el.append(h('span', { hidden: true, 'data-sid': num.desc.id, 'data-vt': b.number }));
+    el.dataset.vtTitle = numVar ? b.title : b.text;
     return el;
   }
 
   function warmupEl(b) {
     const body = resolveKey('normal');
     const box = resolveKey('box');
+    const label = resolveKey('warmup');
     const left = h('div', { class: 'pt-warm-left ' + box.cls });
-    left.innerHTML = '<span class="pt-tag">워밍업</span><br>' + b.left;
+    const lf = label.mapped ? 'font-family:' + esc(PTStyle.familyStack(label.desc.font)) + ';font-weight:' + PTStyle.fontWeight(label.desc.font.style) : '';
+    left.innerHTML = '<span class="pt-tag" style="' + lf + '">워밍업</span><br>' + b.left;
     const right = h('div', { class: 'pt-warm-right ' + body.cls });
     right.innerHTML = b.right;
     return h('div', { class: 'pt-warmup' }, left, right);
@@ -602,16 +802,22 @@
     const vs = varStyleSet();
     const blocks = S.opts.markup ? PTMarkup.apply(S.doc.blocks) : S.doc.blocks;
     S.blocks = blocks;
+    const used = {};
     blocks.forEach((b, bi) => {
       if (b.kind === 'break') { items.push({ kind: 'break' }); return; }
       if (b.kind === 'empty' && S.opts.skipEmpty && !b.boxed && !b.container) return;
-      if (b.kind === 'chapter') { items.push(chapterItem(b, bi, vs)); return; }
-      const key = b.comp === 'note' ? 'note' : b.container && b.key === 'normal' ? 'box' : b.key;
+      if (b.kind === 'chapter') {
+        for (const k of ['h1', 'chapterNum', 'goal', 'toc']) used[k] = (used[k] || 0) + 1;
+        items.push(chapterItem(b, bi, vs));
+        return;
+      }
+      const key = roleKey(b, blocks[bi + 1]);
+      used[key] = (used[key] || 0) + 1;
       const st = resolveKey(key);
       const d = st.desc;
       let el, split = 'text';
       if (b.kind === 'section') {
-        el = sectionEl(b, st);
+        el = sectionEl(b, st, vs);
         split = null;
       } else if (b.kind === 'warmup') {
         el = warmupEl(b);
@@ -624,7 +830,7 @@
         el.append(img);
         split = null;
       } else if (b.kind === 'table') {
-        el = tableEl(b.rows, st.cls);
+        el = tableEl(b.rows, st.cls, resolveKey('tableHead').cls);
         split = 'table';
       } else {
         el = h('div', { class: st.cls });
@@ -643,6 +849,7 @@
         }
       }
       if (b.comp) el.classList.add('pt-comp-' + b.comp);
+      if (!st.mapped) el.classList.add('pt-um');
       if (b.container) {
         el.classList.add('pt-c', 'pt-c-' + b.container);
         if (b.cfirst) el.classList.add('pt-cfirst');
@@ -657,11 +864,35 @@
       el.dataset.sid = d.id || ('key:' + key);
       el.dataset.key = b.kind === 'section' ? 'h2' : key;
       const headingLike = HEADING_KEYS.has(b.key) || b.kind === 'section' || b.comp === 'ctitle' || b.comp === 'summary-title' || b.comp === 'practice';
-      if (d.keepWithNext > 0 || (headingLike && (!st.mapped || b.kind === 'section' || b.comp))) el.dataset.kwn = '1';
-      if (d.id && vs.has(d.id) && b.text) el.dataset.vt = b.text.slice(0, 200);
+      // 제목류는 IDML에 '다음과 함께 유지'가 없어도 다음 문단과 붙인다 (조판자가 손으로 하던 일)
+      if (d.keepWithNext > 0 || headingLike) el.dataset.kwn = '1';
+      const vt = el.dataset.vtTitle || b.text;
+      if (d.id && vs.has(d.id) && vt) el.dataset.vt = vt.slice(0, 200);
       items.push({ kind: b.kind, el, split, start: d.startParagraph, keepAll: d.keepAll });
     });
+    S.usedKeys = used;
     return items;
+  }
+
+  // 블록의 역할 → 매핑 키 (박스 안 위치, 목록 끝 등)
+  function roleKey(b, next) {
+    if (b.kind === 'section') return 'h2';
+    if (b.kind === 'warmup') return 'box';
+    if (b.kind === 'image') return 'image';
+    if (b.kind === 'table') return 'table';
+    if (b.comp === 'note') return 'note';
+    if (b.comp === 'practice') return 'practice';
+    if (b.comp === 'summary-title') return 'summaryTitle';
+    if (b.container === 'summary') return 'summary';
+    if (b.container === 'coach') return b.comp === 'ctitle' ? 'coachTitle' : b.clast ? 'coachLast' : 'coach';
+    if (b.container === 'prompt') return b.clast ? 'promptLast' : 'prompt';
+    if (b.container === 'ai') return b.clast ? 'aiLast' : 'ai';
+    if (b.container && b.key === 'normal') return 'box';
+    if (b.list && (b.key === 'li' || b.key === 'ol')) {
+      const cont = next && next.list && next.key === b.key && next.container === b.container;
+      return cont ? b.key : b.key + 'Last';
+    }
+    return b.key;
   }
 
   // 못 불러온 그림은 같은 비율의 자리표시로 바꿔 쪽 나눔이 어긋나지 않게 한다
@@ -713,9 +944,26 @@
     return { el, cols, number, side, margins: m };
   }
 
+  function runStyle(st) {
+    if (!st) return '';
+    const a = [];
+    if (st.family) a.push('font-family:' + PTStyle.familyStack({ family: st.family, style: st.style || '' }));
+    if (st.style) a.push('font-weight:' + PTStyle.fontWeight(st.style));
+    if (st.size) a.push('font-size:' + st.size + 'pt');
+    if (st.color) a.push('color:' + st.color);
+    if (st.tracking) a.push('letter-spacing:' + st.tracking / 1000 + 'em');
+    return a.join(';');
+  }
+
   function runText(run, page) {
+    const inner = runInner(run, page);
+    const css = runStyle(run.st);
+    return css && inner ? '<span style="' + esc(css) + '">' + inner + '</span>' : inner;
+  }
+
+  function runInner(run, page) {
     if (run.t === 'text') return esc(run.v);
-    if (run.t === 'page') return String(page.number);
+    if (run.t === 'page') return String(page.number).padStart(S.tpl.folioDigits || 0, '0');
     if (run.t === 'var') {
       const v = (S.tpl.variables || {})[run.id];
       if (!v) return esc(run.v || '');
@@ -770,7 +1018,15 @@
       for (const p of t.paragraphs) {
         const cls = S.clsById.get(p.styleId) || 'pk-normal';
         const d = h('div', { class: cls });
-        d.innerHTML = p.runs.map(r => runText(r, page)).join('').replace(/\t/g, ' ') || '&#8203;';
+        const ov = p.over || {};
+        if (ov.justification) {
+          const j = PTStyle.justify(ov.justification);
+          d.style.textAlign = j.align;
+          d.style.textAlignLast = j.last;
+        }
+        const pcss = runStyle(ov);
+        if (pcss) d.style.cssText += ';' + pcss;
+        d.innerHTML = p.runs.map(r => runText(r, page)).join('').replace(/\t/g, '\u2003') || '&#8203;';
         f.append(d);
       }
       page.el.append(f);
@@ -994,7 +1250,9 @@
     ui.pages.textContent = '';
     ui.pages.append(h('div', { class: 'pt-empty' },
       h('div', null, h('b', null, '인디자인 내지(IDML)'), '를 올리면 이 문서를 그 판형과 스타일로 조판해 보여 줍니다.'),
-      h('div', null, h('button', { class: 'pt-btn pt-primary', onclick: () => ui.file.click() }, 'IDML 올리기'))));
+      h('div', null,
+        h('button', { class: 'pt-btn pt-primary', onclick: () => ui.file.click() }, 'IDML 올리기'),
+        h('button', { class: 'pt-btn', onclick: () => { ui.driveRow.classList.add('pt-show'); ui.driveInput.focus(); } }, '드라이브 링크로 불러오기'))));
   }
 
   function syncHeader() {
@@ -1018,8 +1276,8 @@
 
     // 1) 스타일 매핑
     d.append(h('h4', null, '스타일 매핑 — Docs 단락 스타일 → 내지 단락 스타일'));
-    const counts = {};
-    if (S.doc) for (const b of S.doc.blocks) if (b.key && b.kind !== 'empty') counts[b.key] = (counts[b.key] || 0) + 1;
+    const counts = Object.assign({}, S.usedKeys || {});
+    if (!S.usedKeys && S.doc) for (const b of S.doc.blocks) if (b.key && b.kind !== 'empty') counts[b.key] = (counts[b.key] || 0) + 1;
     const keys = KEY_ORDER.filter(k => counts[k] || S.mapping[k]);
     const showKeys = keys.length ? keys : ['title', 'h1', 'h2', 'h3', 'normal', 'li', 'code', 'table'];
     const table = h('table', { class: 'pt-map' });
@@ -1097,7 +1355,21 @@
       fontLine.append(h('span', { class: f.ok ? 'pt-font-ok' : 'pt-font-miss', title: f.ok ? '설치됨' : '이 컴퓨터에 없음 → 대체 글꼴로 표시' }, (f.ok ? '✓ ' : '✗ ') + f.family));
     });
     info.append(fontLine);
+    const fontFiles = h('input', { type: 'file', multiple: true, accept: '.otf,.ttf,.ttc', style: 'display:none', onchange: e => { importFonts(e.target.files); e.target.value = ''; } });
+    const fontDir = h('input', { type: 'file', multiple: true, style: 'display:none', onchange: e => { importFonts(e.target.files); e.target.value = ''; } });
+    fontDir.webkitdirectory = true;
+    info.append(h('div', { style: 'margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center' },
+      h('button', { class: 'pt-btn', onclick: () => fontDir.click() }, '글꼴 폴더 올리기'),
+      h('button', { class: 'pt-btn', onclick: () => fontFiles.click() }, '글꼴 파일 올리기'),
+      h('span', { style: 'color:#80868b;font-size:11px' }, 'InDesign 패키지의 Document fonts 폴더를 끌어다 놓아도 됩니다. 이 브라우저에만 저장됩니다.'),
+      fontFiles, fontDir));
     d.append(info);
+    const src = tpl.source || (S.index[S.tplId] && S.index[S.tplId].source);
+    if (src) {
+      d.append(h('div', { style: 'margin-top:8px;font-size:12px;color:#5f6368;display:flex;gap:6px;align-items:center;flex-wrap:wrap' },
+        '출처: 구글 드라이브',
+        h('button', { class: 'pt-btn', onclick: () => importFromDrive(src) }, '드라이브에서 다시 불러오기')));
+    }
     if (!tpl.builtin) {
       d.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'pt-btn', onclick: () => { if (confirm('이 템플릿을 삭제할까요?')) deleteTemplate(S.tplId); } }, '이 템플릿 삭제')));
     }
@@ -1331,6 +1603,6 @@
     injectBridge();
   }
 
-  globalThis.PTApp = { toggle, importFile, refresh, relayout, setZoom, state: S, sync: SY, _loadTemplate: loadTemplate, _onCursor: o => onCursor(o), _setModel: t => { SY.model = t; alignBlocks(); } };
+  globalThis.PTApp = { toggle, importFile, importFonts, importFromDrive, refresh, relayout, setZoom, state: S, sync: SY, _loadTemplate: loadTemplate, _onCursor: o => onCursor(o), _setModel: t => { SY.model = t; alignBlocks(); } };
   init();
 })();
