@@ -400,21 +400,34 @@
   }
 
   // ---------- 템플릿 ----------
+  // 올린 내지가 없으면 아무것도 고르지 않는다 (내장 템플릿을 대신 쓰지 않음)
   async function chooseInitialTemplate() {
     const got = await store.get([K.doc(S.docId), K.last]);
-    const id = got[K.doc(S.docId)] || got[K.last] || PTDefaults.BUILTIN.id;
-    await loadTemplate(id);
+    const ids = Object.keys(S.index);
+    let id = [got[K.doc(S.docId)], got[K.last]].find(x => x && S.index[x]);
+    if (!id && ids.length) id = ids.sort((a, b) => (S.index[b].createdAt || 0) - (S.index[a].createdAt || 0))[0];
+    if (id) await loadTemplate(id);
+    else clearTemplate();
+  }
+
+  function clearTemplate() {
+    S.tpl = null;
+    S.tplId = null;
+    S.pages = [];
+    S.wraps = [];
+    syncHeader();
+    if (ui.drawer) { ui.drawer.classList.remove('pt-show'); ui.gearBtn.classList.remove('pt-on'); }
   }
 
   async function loadTemplate(id) {
     let tpl = null;
-    if (id === PTDefaults.BUILTIN.id) tpl = PTDefaults.BUILTIN;
+    if (id === PTDefaults.BUILTIN.id) tpl = PTDefaults.BUILTIN; // 테스트용 (목록에는 안 보임)
     else {
       const got = await store.get([K.tpl(id), K.map(id)]);
       tpl = got[K.tpl(id)] || null;
       if (tpl) S.mapping = got[K.map(id)] || PTDefaults.guessMapping(tpl);
     }
-    if (!tpl) { tpl = PTDefaults.BUILTIN; id = tpl.id; }
+    if (!tpl) { clearTemplate(); return; }
     if (tpl.builtin) {
       const got = await store.get(K.map(id));
       S.mapping = got[K.map(id)] || PTDefaults.guessMapping(tpl);
@@ -543,9 +556,9 @@
     if (!id || id === PTDefaults.BUILTIN.id) return;
     delete S.index[id];
     await store.remove([K.tpl(id), K.map(id)]);
-    await store.set({ [K.index]: S.index, [K.doc(S.docId)]: PTDefaults.BUILTIN.id, [K.last]: PTDefaults.BUILTIN.id });
-    await loadTemplate(PTDefaults.BUILTIN.id);
-    relayout();
+    await store.remove([K.doc(S.docId), K.last]);
+    await chooseInitialTemplate();
+    if (S.tpl) relayout(); else renderEmpty();
   }
 
   // ---------- 스타일 ----------
@@ -698,6 +711,7 @@
   // ---------- 원고 ----------
   async function refresh(force) {
     if (!S.open) return;
+    if (!S.tpl) { renderEmpty(); setStatus('', false); return; }
     if (!S.docId) { showError('Google Docs 문서 주소를 찾지 못했습니다.'); return; }
     setStatus('원고 불러오는 중…', true);
     try {
@@ -1151,7 +1165,8 @@
 
   // ---------- 조판 실행 ----------
   async function relayout() {
-    if (!S.open || !S.tpl) return;
+    if (!S.open) return;
+    if (!S.tpl) { renderEmpty(); return; }
     if (!S.doc) { renderEmpty(); return; }
     const run = ++S.run;
     S.laying = true;
@@ -1248,6 +1263,9 @@
   }
 
   function renderEmpty() {
+    if (!ui.pages) return;
+    S.pages = [];
+    S.wraps = [];
     ui.pages.textContent = '';
     ui.pages.append(h('div', { class: 'pt-empty' },
       h('div', null, h('b', null, '인디자인 내지(IDML)'), '를 올리면 이 문서를 그 판형과 스타일로 조판해 보여 줍니다.'),
@@ -1259,10 +1277,12 @@
   function syncHeader() {
     if (!ui.tplSel) return;
     ui.tplSel.textContent = '';
-    ui.tplSel.append(h('option', { value: PTDefaults.BUILTIN.id }, PTDefaults.BUILTIN.name));
     const ids = Object.keys(S.index).sort((a, b) => (S.index[b].createdAt || 0) - (S.index[a].createdAt || 0));
+    if (!ids.length) ui.tplSel.append(h('option', { value: '' }, '올린 내지 없음'));
     for (const id of ids) ui.tplSel.append(h('option', { value: id }, S.index[id].name));
-    ui.tplSel.value = S.tplId || PTDefaults.BUILTIN.id;
+    if (S.tplId && S.tplId === PTDefaults.BUILTIN.id) ui.tplSel.append(h('option', { value: S.tplId }, PTDefaults.BUILTIN.name));
+    ui.tplSel.value = S.tplId || '';
+    ui.tplSel.disabled = !ids.length;
     ui.spreadBtn.innerHTML = S.opts.spread ? ICON.spread : ICON.single;
     ui.spreadBtn.title = S.opts.spread ? '펼침면 보기 (눌러서 낱쪽)' : '낱쪽 보기 (눌러서 펼침면)';
     ui.zoomLbl.textContent = Math.round(scaleFor() * 100) + '%';

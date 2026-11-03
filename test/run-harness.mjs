@@ -55,7 +55,7 @@ try {
   });
   await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
-  await send('Page.navigate', { url: `http://127.0.0.1:8765/test/harness.html?${query}` });
+  await send('Page.navigate', { url: `http://127.0.0.1:8765/${query.startsWith("/") ? query.slice(1) : "test/harness.html?" + query}` });
   const t0 = Date.now();
   while (Date.now() - t0 < 240000) {
     if (await evaluate('document.title').catch(() => '') === 'DONE') break;

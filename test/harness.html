@@ -55,6 +55,12 @@
     try {
       await PTApp.toggle(true);
       await waitIdle();
+      out.emptyState = !!shadowRoot().querySelector('.pt-empty') && PTApp.state.pages.length === 0 && !PTApp.state.tpl;
+      if (params.get('tpl') === 'builtin') {
+        await PTApp._loadTemplate(PTDefaults.BUILTIN.id);
+        await PTApp.refresh(true);
+        await waitIdle();
+      }
       out.builtinPages = PTApp.state.pages.length;
       if (params.get('tpl') === 'builtin') {
         const S = PTApp.state;
