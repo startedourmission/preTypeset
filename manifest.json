@@ -18,6 +18,12 @@
   "background": {
     "service_worker": "background.js"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["content/page-bridge.js"],
+      "matches": ["https://docs.google.com/*"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["https://docs.google.com/document/*"],
@@ -28,6 +34,7 @@
         "lib/style-css.js",
         "lib/defaults.js",
         "lib/layout.js",
+        "lib/markup.js",
         "content/main.js"
       ],
       "run_at": "document_idle"

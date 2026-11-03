@@ -30,7 +30,8 @@
 <script>
   PTDocs.docIdFromLocation = () => 'test-doc';
   PTDocs.fetchDocsHtml = async () => {
-    let t = await (await fetch('fixtures/sample-docs.html')).text();
+    const src = new URLSearchParams(location.search).get('src') || 'sample-docs.html';
+    let t = await (await fetch('fixtures/' + src)).text();
     const rep = parseInt(new URLSearchParams(location.search).get('big') || '0', 10);
     if (rep) { const m = t.match(/(<h1[\s\S]*?)(<div><p class="c16">)/); t = t.replace(m[1], m[1].repeat(rep)); }
     return t;
@@ -39,6 +40,7 @@
 <script src="../lib/style-css.js"></script>
 <script src="../lib/defaults.js"></script>
 <script src="../lib/layout.js"></script>
+<script src="../lib/markup.js"></script>
 <script src="../content/main.js"></script>
 <script>
   const params = new URLSearchParams(location.search);
@@ -53,6 +55,11 @@
       await PTApp.toggle(true);
       await waitIdle();
       out.builtinPages = PTApp.state.pages.length;
+      if (params.get('tpl') === 'builtin') {
+        const S = PTApp.state;
+        out.blocks = (S.blocks || []).map(b => b.kind + ':' + (b.comp || b.key) + (b.container ? '@' + b.container : '')).join(' ');
+        out.folios = S.pages.slice(0, 30).map(p => p.number + ' ' + p.side + ' [' + Array.from(p.el.querySelectorAll('.pt-mframe')).map(f => f.textContent.trim()).join(' / ') + ']');
+      }
       out.builtinMs = Math.round(performance.now());
       if (params.get('tpl') !== 'builtin') {
         const buf = await (await fetch('fixtures/sample.idml')).arrayBuffer();
@@ -66,15 +73,32 @@
         out.pages = S.pages.length;
         out.overset = S.pages.filter(p => p.overset).map(p => p.number);
         out.blocks = S.doc.blocks.map(b => b.kind + ':' + b.key).join(' ');
-        out.folios = S.pages.map(p => p.number + ' ' + p.side + ' [' + Array.from(p.el.querySelectorAll('.pt-mframe')).map(f => f.textContent.trim()).join(' / ') + ']');
+        out.folios = S.pages.slice(0, 30).map(p => p.number + ' ' + p.side + ' [' + Array.from(p.el.querySelectorAll('.pt-mframe')).map(f => f.textContent.trim()).join(' / ') + ']');
         out.fonts = S.fonts;
       }
-      if (params.get('drawer') === '0') shadowRoot().querySelector('.pt-btn[title^="스타일 매핑"]').click();
+      if (params.get('drawer') === '0' && shadowRoot().querySelector('.pt-drawer.pt-show')) shadowRoot().querySelector('.pt-btn[title^="스타일 매핑"]').click();
       if (params.get('grid')) { PTApp.state.opts.grid = true; await PTApp.relayout(); }
       if (params.get('spread') === '0') { PTApp.state.opts.spread = false; shadowRoot().querySelector('.pt-btn[title*="펼침면"]').click(); shadowRoot().querySelector('.pt-btn[title*="펼침면"]').click(); }
       if (params.get('zoom')) PTApp.setZoom(parseFloat(params.get('zoom')));
       await new Promise(r => setTimeout(r, 200));
       if (params.get('page')) { const w = shadowRoot().querySelector('.pt-wrap[data-n="' + params.get('page') + '"]'); const v = shadowRoot().querySelector('.pt-viewer'); v.scrollTop += w.getBoundingClientRect().top - v.getBoundingClientRect().top - 10; }
+      if (params.get('synctest')) {
+        // 가짜 Docs 모델: 원고 텍스트를 문단마다 줄바꿈으로 이어 붙인다
+        const raw = await (await fetch('fixtures/' + (params.get('src') || 'sample-docs.html'))).text();
+        const d = new DOMParser().parseFromString(raw, 'text/html');
+        const model = Array.from(d.body.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,td')).map(e => e.textContent).join('\n');
+        PTApp._setModel(model);
+        const needle = params.get('synctest');
+        const off = model.indexOf(needle);
+        PTApp._onCursor(off);
+        await new Promise(r => setTimeout(r, 1500));
+        const cur = shadowRoot().querySelector('.pt-cursor');
+        const wrap = cur && cur.closest('.pt-wrap');
+        const v = shadowRoot().querySelector('.pt-viewer');
+        const wr = wrap && wrap.getBoundingClientRect(), vr = v.getBoundingClientRect();
+        out.sync = { offset: off, alignedBlocks: PTApp.sync.offsets && PTApp.sync.offsets.filter((x, i, a) => i === 0 || x !== a[i - 1]).length,
+          cursorText: cur && cur.textContent.slice(0, 40), page: wrap && wrap.dataset.n, pageVisible: !!wr && wr.bottom > vr.top && wr.top < vr.bottom };
+      }
     } catch (e) {
       out.error = String(e && e.stack || e);
     }

@@ -7,6 +7,7 @@ const CONTENT_FILES = [
   'lib/style-css.js',
   'lib/defaults.js',
   'lib/layout.js',
+  'lib/markup.js',
   'content/main.js'
 ];
 
