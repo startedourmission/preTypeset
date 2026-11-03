@@ -498,7 +498,8 @@
     clearError();
     try {
       setStatus('드라이브 폴더 읽는 중…', true);
-      const list = await driveCall({ op: 'list', url });
+      const acct = location.pathname.match(/\/u\/(\d+)\//);
+      const list = await driveCall({ op: 'list', url, authuser: acct ? acct[1] : '' });
       const files = list.files || [];
       const idmls = files.filter(f => /\.idml$/i.test(f.name));
       const fonts = files.filter(f => /\.(otf|ttf|ttc)$/i.test(f.name));
@@ -517,7 +518,7 @@
         const got = [];
         for (let i = 0; i < need.length; i++) {
           const f = need[i];
-          const bytes = await driveCall({ op: 'get', id: f.id }, (n, t) => setStatus('글꼴 받는 중 ' + (i + 1) + '/' + need.length + ' · ' + f.name + ' ' + mb(n) + '/' + mb(t), true));
+          const bytes = await driveCall({ op: 'get', id: f.id, authuser: f.authuser }, (n, t) => setStatus('글꼴 받는 중 ' + (i + 1) + '/' + need.length + ' · ' + f.name + ' ' + mb(n) + '/' + mb(t), true));
           got.push(new File([bytes], f.name));
         }
         if (got.length) {
@@ -528,7 +529,7 @@
       }
 
       // 2) IDML
-      const bytes = await driveCall({ op: 'get', id: pick.id }, (n, t) => setStatus('IDML 받는 중 · ' + pick.name + ' ' + mb(n) + '/' + mb(t), true));
+      const bytes = await driveCall({ op: 'get', id: pick.id, authuser: pick.authuser }, (n, t) => setStatus('IDML 받는 중 · ' + pick.name + ' ' + mb(n) + '/' + mb(t), true));
       await importFile(new File([bytes], pick.name), url);
       ui.driveRow.classList.remove('pt-show');
     } catch (e) {
