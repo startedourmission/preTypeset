@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "preTypeset",
+  "version": "0.1.0",
+  "description": "인디자인 내지(IDML)를 올리면 구글 독스 원고의 조판 미리보기를 문서 오른쪽에 나란히 띄웁니다.",
+  "minimum_chrome_version": "116",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": ["https://docs.google.com/*"],
+  "action": {
+    "default_title": "preTypeset 조판 미리보기 열기/닫기"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+P" },
+      "description": "조판 미리보기 열기/닫기"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://docs.google.com/document/*"],
+      "js": [
+        "lib/zip.js",
+        "lib/idml.js",
+        "lib/docs-source.js",
+        "lib/style-css.js",
+        "lib/defaults.js",
+        "lib/layout.js",
+        "content/main.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

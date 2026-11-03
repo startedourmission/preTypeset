@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>preTypeset harness</title>
+<style>
+  body{margin:0;font-family:sans-serif;background:#f8f9fa}
+  .fake-doc{margin:20px auto;width:640px;min-height:900px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);padding:60px;line-height:1.6}
+  #result{position:fixed;left:8px;bottom:8px;font:11px monospace;background:#fff;padding:4px;max-width:600px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<div class="fake-doc"><h2>(가짜 Docs 편집기 영역)</h2><p>왼쪽은 Docs, 오른쪽은 preTypeset 패널.</p></div>
+<pre id="result">running…</pre>
+<script>
+  // chrome.* 대체
+  const mem = {};
+  window.chrome = {
+    storage: { local: {
+      get(keys, cb) { const ks = Array.isArray(keys) ? keys : [keys]; const o = {}; for (const k of ks) if (k in mem) o[k] = JSON.parse(JSON.stringify(mem[k])); setTimeout(() => cb(o)); },
+      set(obj, cb) { Object.assign(mem, JSON.parse(JSON.stringify(obj))); setTimeout(() => cb && cb()); },
+      remove(keys, cb) { for (const k of [].concat(keys)) delete mem[k]; setTimeout(() => cb && cb()); }
+    } },
+    runtime: { onMessage: { addListener() {} } }
+  };
+</script>
+<script src="../lib/zip.js"></script>
+<script src="../lib/idml.js"></script>
+<script src="../lib/docs-source.js"></script>
+<script>
+  PTDocs.docIdFromLocation = () => 'test-doc';
+  PTDocs.fetchDocsHtml = async () => {
+    let t = await (await fetch('fixtures/sample-docs.html')).text();
+    const rep = parseInt(new URLSearchParams(location.search).get('big') || '0', 10);
+    if (rep) { const m = t.match(/(<h1[\s\S]*?)(<div><p class="c16">)/); t = t.replace(m[1], m[1].repeat(rep)); }
+    return t;
+  };
+</script>
+<script src="../lib/style-css.js"></script>
+<script src="../lib/defaults.js"></script>
+<script src="../lib/layout.js"></script>
+<script src="../content/main.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const waitIdle = async () => {
+    const t0 = Date.now();
+    await new Promise(r => setTimeout(r, 300));
+    while (PTApp.state.laying && Date.now() - t0 < 120000) await new Promise(r => setTimeout(r, 100));
+  };
+  (async () => {
+    const out = {};
+    try {
+      await PTApp.toggle(true);
+      await waitIdle();
+      out.builtinPages = PTApp.state.pages.length;
+      out.builtinMs = Math.round(performance.now());
+      if (params.get('tpl') !== 'builtin') {
+        const buf = await (await fetch('fixtures/sample.idml')).arrayBuffer();
+        const t1 = performance.now();
+        await PTApp.importFile(new File([buf], 'sample.idml'));
+        await waitIdle();
+        out.idmlLayoutMs = Math.round(performance.now() - t1);
+        const S = PTApp.state;
+        out.template = { name: S.tpl.name, page: S.tpl.page, margins: S.tpl.margins, styles: S.tpl.styles.map(s => s.label + ' ' + s.size + '/' + s.leading), master: S.tpl.master && { left: S.tpl.master.left.length, right: S.tpl.master.right.length }, variables: S.tpl.variables };
+        out.mapping = S.mapping;
+        out.pages = S.pages.length;
+        out.overset = S.pages.filter(p => p.overset).map(p => p.number);
+        out.blocks = S.doc.blocks.map(b => b.kind + ':' + b.key).join(' ');
+        out.folios = S.pages.map(p => p.number + ' ' + p.side + ' [' + Array.from(p.el.querySelectorAll('.pt-mframe')).map(f => f.textContent.trim()).join(' / ') + ']');
+        out.fonts = S.fonts;
+      }
+      if (params.get('drawer') === '0') shadowRoot().querySelector('.pt-btn[title^="스타일 매핑"]').click();
+      if (params.get('grid')) { PTApp.state.opts.grid = true; await PTApp.relayout(); }
+      if (params.get('spread') === '0') { PTApp.state.opts.spread = false; shadowRoot().querySelector('.pt-btn[title*="펼침면"]').click(); shadowRoot().querySelector('.pt-btn[title*="펼침면"]').click(); }
+      if (params.get('zoom')) PTApp.setZoom(parseFloat(params.get('zoom')));
+      await new Promise(r => setTimeout(r, 200));
+      if (params.get('page')) { const w = shadowRoot().querySelector('.pt-wrap[data-n="' + params.get('page') + '"]'); const v = shadowRoot().querySelector('.pt-viewer'); v.scrollTop += w.getBoundingClientRect().top - v.getBoundingClientRect().top - 10; }
+    } catch (e) {
+      out.error = String(e && e.stack || e);
+    }
+    document.getElementById('result').textContent = JSON.stringify(out, null, 1);
+    document.title = 'DONE';
+  })();
+  function shadowRoot() { return document.getElementById('pretypeset-host').shadowRoot; }
+</script>
+</body>
+</html>
