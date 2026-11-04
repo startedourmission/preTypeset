@@ -10,7 +10,7 @@
 </style>
 </head>
 <body>
-<div class="fake-doc"><h2>(가짜 Docs 편집기 영역)</h2><p>왼쪽은 Docs, 오른쪽은 preTypeset 패널.</p></div>
+<div class="fake-doc"><h2>(가짜 Docs 편집기 영역)</h2><p>왼쪽은 Docs, 오른쪽은 토인비 조판 패널.</p></div>
 <pre id="result">running…</pre>
 <script>
   // chrome.* 대체
@@ -107,6 +107,29 @@
           if (pg) out.probe = Array.from(pg.el.querySelectorAll('.pt-tframe, .pt-tpl>.pt-mframe, .pt-master>.pt-mframe, .pt-deco')).map(e => e.className + ' @' + e.style.left + ',' + e.style.top + ' ' + e.textContent.trim().slice(0, 50));
         }
       }
+      if (params.get('picktest')) {
+        // 블록 스타일 바꾸기: 글이 든 블록을 눌러 칩·메뉴를 열고, pickto 글이 든 계열을 고른다
+        const R = shadowRoot();
+        const sids = needle => Array.from(R.querySelectorAll('[data-bi]')).filter(e => e.textContent.includes(needle)).map(e => PTApp.state.styleById.get(e.dataset.sid)?.name || e.dataset.sid);
+        const el = Array.from(R.querySelectorAll('[data-bi]')).find(e => e.textContent.includes(params.get('picktest')));
+        out.pick = { before: sids(params.get('picktest')), code: Array.from(R.querySelectorAll('.pt-code, [data-key="codeTitle"]')).map(e => PTApp.state.styleById.get(e.dataset.sid)?.name + ' | ' + e.textContent.slice(0, 20)) };
+        el.click();
+        await new Promise(r => setTimeout(r, 300));
+        R.querySelector('.pt-chip').click();
+        out.pick.chip = R.querySelector('.pt-chip').textContent;
+        out.pick.head = R.querySelector('.pt-menu-head').textContent;
+        out.pick.items = Array.from(R.querySelectorAll('.pt-menu-item')).slice(0, 12).map(e => e.textContent);
+        if (params.get('pickto')) {
+          Array.from(R.querySelectorAll('.pt-menu-item')).find(e => e.textContent.includes(params.get('pickto'))).click();
+          await waitIdle();
+          await new Promise(r => setTimeout(r, 800));
+          out.pick.after = Array.from(R.querySelectorAll('.pt-code, [data-key="codeTitle"]')).map(e => PTApp.state.styleById.get(e.dataset.sid)?.name + ' | ' + e.textContent.slice(0, 20));
+          out.pick.chipAfter = R.querySelector('.pt-chip') && R.querySelector('.pt-chip').textContent;
+          out.pick.stored = mem['pt:blk:test-doc:' + PTApp.state.tplId];
+          if (params.get('pickopen')) { R.querySelector('.pt-chip').click(); const pk = R.querySelector('.pt-picker'); const v = R.querySelector('.pt-viewer'); v.scrollTop += pk.getBoundingClientRect().top - v.getBoundingClientRect().top - 120; }
+        }
+      }
+      if (params.get('eval')) { try { out.eval = await eval(params.get('eval')); } catch (e) { out.eval = String(e); } }
       if (params.get('drawer') === '0' && shadowRoot().querySelector('.pt-drawer.pt-show')) shadowRoot().querySelector('.pt-btn[title^="스타일 매핑"]').click();
       if (params.get('grid')) { PTApp.state.opts.grid = true; await PTApp.relayout(); }
       if (params.get('spread') === '0') { PTApp.state.opts.spread = false; shadowRoot().querySelector('.pt-btn[title*="펼침면"]').click(); shadowRoot().querySelector('.pt-btn[title*="펼침면"]').click(); }

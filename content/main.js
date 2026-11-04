@@ -1,4 +1,4 @@
-// preTypeset — Google Docs 오른쪽 조판 미리보기 패널
+// 토인비 조판 (preTypeset) — Google Docs 오른쪽 조판 미리보기 패널
 (function () {
   'use strict';
   if (window.__preTypesetLoaded) return;
@@ -14,7 +14,7 @@
     sectionNum: '절 번호', h2: '절 제목 (제목 2)', sectionMeta: '난이도·학습 날짜',
     h3: '제목 3', h4: '제목 4', h5: '제목 5', h6: '제목 6',
     normal: '일반 텍스트', li: '글머리 목록', liLast: '글머리 목록 (끝)', ol: '번호 목록', olLast: '번호 목록 (끝)',
-    code: '코드', box: '박스', table: '표 본문', tableHead: '표 머리', footnote: '각주', image: '그림', caption: '그림 설명',
+    code: '코드', codeTitle: '코드 제목', box: '박스', table: '표 본문', tableHead: '표 머리', footnote: '각주', image: '그림', caption: '그림 설명',
     warmup: '워밍업', note: 'NOTE·TIP', coachTitle: '1:1 코칭 제목', coach: '1:1 코칭 본문', coachLast: '1:1 코칭 본문 (끝)',
     prompt: '프롬프트', promptLast: '프롬프트 (끝)', ai: 'AI 답변', aiLast: 'AI 답변 (끝)',
     practice: '실습 제목', summaryTitle: '요약 제목', summary: '요약 목록'
@@ -25,7 +25,7 @@
     coachTitle: ['box'], coach: ['box'], coachLast: ['coach', 'box'],
     prompt: ['box'], promptLast: ['prompt', 'box'], ai: ['box'], aiLast: ['ai', 'box'],
     summaryTitle: ['h3'], summary: ['li'], practice: ['h3'], warmup: ['box'],
-    goalTitle: ['h3'], goal: ['normal'], tocTitle: ['h3'], toc: ['table'], sectionMeta: ['normal']
+    codeTitle: ['caption', 'h4'], goalTitle: ['h3'], goal: ['normal'], tocTitle: ['h3'], toc: ['table'], sectionMeta: ['normal']
   };
   const KEY_ORDER = Object.keys(KEY_LABEL);
   const HEADING_KEYS = new Set(['title', 'subtitle', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
@@ -34,7 +34,7 @@
     width: Math.round(Math.min(720, Math.max(420, window.innerWidth * 0.42))),
     spread: true, zoom: 1, wordBreak: 'keep-all', skipEmpty: true, grid: false,
     startPage: 1, autoRefresh: true, push: true,
-    markup: true, keepHeadings: false, syncScroll: true, syncCursor: true, useTemplates: true
+    markup: true, keepHeadings: false, syncScroll: false, syncCursor: true, useTemplates: true
   };
 
   // ---------- 저장소 ----------
@@ -45,7 +45,9 @@
   };
   const K = {
     opts: 'pt:opts', index: 'pt:templates', last: 'pt:last',
-    tpl: id => 'pt:tpl:' + id, ovr: id => 'pt:ovr:' + id, doc: id => 'pt:doc:' + id
+    tpl: id => 'pt:tpl:' + id, ovr: id => 'pt:ovr:' + id, doc: id => 'pt:doc:' + id,
+    // 블록별로 바꾼 스타일 (문서 × 내지)
+    blk: (doc, tpl) => 'pt:blk:' + doc + ':' + tpl
   };
 
   // ---------- 상태 ----------
@@ -179,6 +181,29 @@
 .pt-deco>.pt-mframe>div{white-space:pre}
 .pt-decopara{white-space:normal}
 .pt-onobj{background-color:#8a8f98!important;outline:1px dashed #5f6368;outline-offset:-1px}
+/* 블록 스타일 바꾸기 */
+.pt-picked{outline:1.5px solid rgba(26,115,232,.8);outline-offset:1px}
+.pt-picker{position:absolute;z-index:5;width:max-content;transform:translateX(-100%);font:12px/1.4 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif}
+.pt-chip{white-space:nowrap;display:inline-flex;align-items:center;gap:4px;max-width:260px;height:20px;padding:0 7px;border:1px solid #1a73e8;border-radius:10px;background:#fff;color:#174ea6;font:inherit;font-size:11px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.15);float:right}
+.pt-chip:hover{background:#e8f0fe}
+.pt-chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt-chip-own{background:#1a73e8;color:#fff;border-radius:6px;padding:0 4px;font-size:10px}
+.pt-menu{display:none;clear:both;position:absolute;right:0;top:24px;width:300px;background:#fff;border:1px solid #dadce0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);overflow:hidden}
+.pt-menu.pt-show{display:block}
+.pt-menu-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;color:#5f6368;font-size:11px;border-bottom:1px solid #eee}
+.pt-menu-group{min-width:0;max-width:170px;height:22px;border:1px solid #dadce0;border-radius:5px;font:inherit;font-size:11px;background:#fff}
+.pt-menu-list{max-height:280px;overflow:auto;padding:4px 0}
+.pt-menu-item{display:flex;align-items:center;gap:6px;width:100%;padding:5px 10px;border:0;background:none;font:inherit;font-size:12px;color:#1f1f1f;text-align:left;cursor:pointer}
+.pt-menu-item:hover{background:#f1f3f4}
+.pt-menu-item.pt-cur{color:#174ea6;font-weight:600}
+.pt-menu-item.pt-unused{color:#9aa0a6}
+.pt-mi-check{width:12px;flex:none}
+.pt-mi-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt-mi-pos{flex:none;font-size:10px;color:#5f6368;background:#f1f3f4;border-radius:4px;padding:0 4px}
+.pt-mi-n{flex:none;font-size:10px;color:#9aa0a6;min-width:26px;text-align:right}
+.pt-menu-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 10px;border-top:1px solid #eee;font-size:11px;color:#3c4043}
+.pt-menu-foot label{display:flex;align-items:center;gap:4px}
+.pt-menu-foot .pt-btn{height:22px;font-size:11px}
 /* 커서 위치 표시 */
 .pt-cursor{box-shadow:-5pt 0 0 -2pt rgb(26 115 232)}
 `;
@@ -241,12 +266,13 @@
         ui.tplSel, upBtn, driveBtn, h('span', { class: 'pt-sep' }), refBtn, ui.spreadBtn,
         zoomOut, ui.zoomLbl, zoomIn, ui.gearBtn, closeBtn, ui.file),
       ui.driveRow, ui.drawer, ui.viewer, ui.foot, ui.measure);
-    ui.panel.querySelector('.pt-logo').innerHTML = 'pre<b>Typeset</b>';
+    ui.panel.querySelector('.pt-logo').innerHTML = '토인비 <b>조판</b>';
     shadow.append(ui.panel);
     document.documentElement.append(host);
 
     // Docs 단축키가 패널 입력을 가로채지 않도록
     for (const t of ['keydown', 'keyup', 'keypress', 'paste', 'copy', 'cut']) host.addEventListener(t, e => e.stopPropagation());
+    host.addEventListener('keydown', e => { if (e.key === 'Escape') closePicker(); });
 
     // 폭 조절
     ui.resize.addEventListener('mousedown', e => {
@@ -363,6 +389,7 @@
     }
     S.tpl = tpl;
     S.tplId = id;
+    S.blockOv = (await store.get(K.blk(S.docId, id)))[K.blk(S.docId, id)] || {};
     S.nameGuess = PTDefaults.guessMapping(tpl);
     S.learned = {};
     S.learnStats = {};
@@ -521,7 +548,11 @@
       sectionNum: head(1.35, 1.5),
       chapterNum: head(1.6, 2)
     };
+    // 대체 스타일은 IDML 스타일이 아니다 (본문 스타일의 id·장식이 따라가지 않게).
+    // normal은 IDML 본문 스타일 객체 그 자체이므로 고치지 말고 복사본을 쓴다.
+    for (const k of Object.keys(S.fallback)) S.fallback[k] = Object.assign({}, S.fallback[k], { id: '' });
 
+    buildFamilies();
     let css = '';
     tpl.styles.forEach((s, i) => { css += PTStyle.rulesFor('.ps-' + i, s); });
     // 음영·테두리 설정이 같은 스타일끼리 이어지면 상자를 합친다
@@ -529,7 +560,9 @@
     const bxSig = new Map();
     for (const s of tpl.styles) {
       if (!s.shade && !s.border) continue;
-      const k = JSON.stringify([s.shade, s.border]);
+      // 위·아래 오프셋, 모서리는 합칠 때 어차피 첫/끝 단락 것만 쓰므로 빼고 비교한다 (코드S·C·E가 한 상자로)
+      const side = b => b && [b.color, b.width, b.offset && [b.offset[1], b.offset[3]], b.weight && [b.weight[1], b.weight[3]]];
+      const k = JSON.stringify([side(s.shade), side(s.border)]);
       if (!bxSig.has(k)) bxSig.set(k, 'bx-' + bxSig.size);
       S.bxById.set(s.id, bxSig.get(k));
     }
@@ -666,11 +699,16 @@
     };
     // 같은 텍스트가 여러 스타일에 있으면 횟수 비율만큼 나눠서 표를 준다
     const add = (role, text) => {
+      // 짧은 코드 줄('None', '} Node;' …)은 어느 코드 스타일에나 있어 근거가 못 된다
+      if (role === 'code' && String(text || '').replace(/\s/g, '').length < 10) return;
       const k = PTIdml.sampleKey(text);
       let cand = k && samples[k];
       if ((!Array.isArray(cand) || !cand.length) && k && /\d/.test(k)) cand = byShape(k);
       if (!Array.isArray(cand) || !cand.length) return;
       if (cand.some(([si]) => !basic.has(si))) cand = cand.filter(([si]) => !basic.has(si));
+      // 코드 줄('None', '}' …)은 IDML 어디에나 있으니 고정폭 글꼴 스타일에서만 찾는다
+      if (role === 'code') cand = cand.filter(([si]) => { const st = S.tpl.styles[si]; return st && st.font && PTStyle.looksMono(st.font.family || ''); });
+      if (!cand.length) return;
       const sum = cand.reduce((a, c) => a + c[1], 0);
       const t = tally[role] || (tally[role] = { total: 0, by: {} });
       t.total++;
@@ -700,6 +738,100 @@
       }
     }
     learnFromTemplates(blocks);
+    // 본문·코드: 원고 글로 못 배웠고, 이름 규칙이 고른 스타일이 책에서 거의 안 쓰였으면(예: Word에서 들어온 'Normal',
+    // 쓰지 않는 '코드') 가장 많이 쓴 스타일로. 코드는 고정폭 글꼴, 본문은 그 밖의 일반 스타일 중에서.
+    {
+      const use = new Map();
+      for (const cand of Object.values(samples)) if (Array.isArray(cand)) for (const [si, c] of cand) use.set(si, (use.get(si) || 0) + c);
+      const idx = new Map(S.tpl.styles.map((st, si) => [st.id, si]));
+      const mono = st => st.font && PTStyle.looksMono(st.font.family || '');
+      const basic = st => /NormalParagraphStyle$/.test(st.id) || /^\[/.test(st.name);
+      const pick = (key, ok, why) => {
+        if (S.learned[key] || (S.overrides || {})[key]) return;
+        let best = -1, n = 0;
+        S.tpl.styles.forEach((st, si) => { if (ok(st) && (use.get(si) || 0) > n) { best = si; n = use.get(si); } });
+        // 근거가 될 만큼 쓰인 스타일만 (본문 글이 거의 없는 IDML이면 이름 규칙을 믿는다)
+        if (best < 0 || n < 20) return;
+        const guess = (S.nameGuess || {})[key];
+        if (guess && idx.has(guess) && (use.get(idx.get(guess)) || 0) >= n * 0.25) return;
+        S.learned[key] = S.tpl.styles[best].id;
+        S.learnStats[key] = why;
+      };
+      pick('code', st => mono(st), { mono: true });
+      pick('normal', st => !mono(st) && !basic(st) && !(st.shade || st.border), { body: true });
+    }
+    learnHeadings(blocks);
+    learnFromLeadTags(blocks);
+    // 표: IDML에서 가장 흔한 표의 칸 글 스타일
+    const D = S.tpl.table;
+    if (D) {
+      for (const [key, pos] of [['table', 'mid:mid'], ['tableHead', 'head:mid']]) {
+        const v = D[pos] || D[pos.replace('mid', 'first')];
+        if (v && v.para && S.styleById.has(v.para) && !S.learned[key] && !(S.overrides || {})[key]) {
+          S.learned[key] = v.para;
+          S.learnStats[key] = { table: true };
+        }
+      }
+    }
+  }
+
+  // 원고 표식(예: [1:1 코칭])과 같은 고정 글이 든 IDML 머리 띠가 있으면, 그 머리 띠가 늘 앞에 서는 스타일을 그 박스의 본문으로 본다
+  function learnFromLeadTags(blocks) {
+    const prec = S.tpl.precede || {}, decos = S.tpl.decos || {};
+    const BODY = { coachTitle: 'coach', box: 'box', note: 'note' };
+    const norm = t => normText(t).replace(/\s+/g, '').replace(/\d+/g, '#');
+    for (const b of blocks) {
+      const body = BODY[b.role];
+      if (!b.tag || !body || S.learned[body] || (S.overrides || {})[body]) continue;
+      const nt = norm(b.tag);
+      for (const [y, x] of Object.entries(prec)) {
+        if (!S.styleById.has(y)) continue;
+        if ((decos[x] || []).some(d => d.norm.split('|').some(t => norm(t) === nt))) {
+          S.learned[body] = y;
+          S.learnStats[body] = { tag: true };
+          break;
+        }
+      }
+    }
+  }
+
+  // 제목 3~6: 원고 글로도 이름으로도 못 찾으면 IDML 스타일 모양으로 고른다.
+  //   본문 흐름에서 자주 쓰이고(가장 많이 쓴 제목 후보의 10% 이상), 본문보다 크고 굵은 스타일.
+  //   반복 틀 핵심 스타일·[기본 단락]·고정폭·이미 다른 역할에 붙은 스타일은 뺀다. 큰 것부터 제목 3, 4, …
+  function learnHeadings(blocks) {
+    const want = ['h3', 'h4', 'h5', 'h6'].filter(k => blocks.some(b => b.kind === 'p' && b.key === k && !b.role) &&
+      !S.learned[k] && !(S.overrides || {})[k] && !(S.nameGuess || {})[k]);
+    if (!want.length) return;
+    const use = new Map();
+    for (const cand of Object.values(S.tpl.samples || {})) if (Array.isArray(cand)) for (const [si, c] of cand) use.set(si, (use.get(si) || 0) + c);
+    const isBasic = st => /NormalParagraphStyle$/.test(st.id) || /^\[/.test(st.name);
+    const mono = st => st.font && PTStyle.looksMono(st.font.family || '');
+    // 본문 크기: 가장 많이 쓴 일반 스타일
+    let body = null, bn = 0;
+    S.tpl.styles.forEach((st, si) => { if (!isBasic(st) && !mono(st) && (use.get(si) || 0) > bn) { body = st; bn = use.get(si); } });
+    if (!body) return;
+    const taken = new Set(Object.values(Object.assign({}, S.nameGuess || {}, S.learned, S.overrides || {})));
+    // 반복 틀의 핵심 스타일(장·절 제목 등)과, 쓰임 대부분이 틀 자리인 스타일(틀의 '워밍업' 라벨 등)
+    const inTpl = new Map();
+    for (const t of S.tpl.templates || []) {
+      for (const k of t.keys) taken.add(k);
+      for (const pg of t.pages) for (const f of pg.frames) for (const sid of f.styles || []) inTpl.set(sid, (inTpl.get(sid) || 0) + (t.count || 1));
+    }
+    const cands = [];
+    S.tpl.styles.forEach((st, si) => {
+      const n = use.get(si) || 0;
+      if (n < 5 || isBasic(st) || mono(st) || taken.has(st.id) || (inTpl.get(st.id) || 0) >= n * 0.5) return;
+      if (!(st.size > body.size) || PTStyle.fontWeight(st.font && st.font.style) < 600) return;
+      cands.push({ st, n });
+    });
+    if (!cands.length) return;
+    const top = Math.max(...cands.map(c => c.n));
+    const picked = cands.filter(c => c.n >= top * 0.1).sort((a, b) => b.st.size - a.st.size || b.n - a.n);
+    want.forEach((k, i) => {
+      const c = picked[Math.min(i, picked.length - 1)];
+      S.learned[k] = c.st.id;
+      S.learnStats[k] = { heading: true };
+    });
   }
 
   // 원고 글이 IDML에 없어 배우지 못한 제목(예: 이 책의 장·절 제목)은 반복 틀의 구조에서 배운다.
@@ -784,13 +916,33 @@
   function tableEl(rows, cls, headCls) {
     const el = h('table', { class: 'pt-table ' + cls });
     const tb = h('tbody');
+    // IDML에서 가장 흔한 표 모양 (첫 행·가운데 행·마지막 행 × 첫 열·가운데·마지막 열)
+    const D = S.tpl && S.tpl.table;
+    const userSet = k => !!(S.overrides && S.overrides[k]);
     for (const [ri, row] of rows.entries()) {
       const tr = h('tr');
-      for (const c of row) {
+      for (const [ci, c] of row.entries()) {
         const td = h('td', { class: ri === 0 && headCls ? headCls : null });
         if (c.colspan > 1) td.colSpan = c.colspan;
         if (c.rowspan > 1) td.rowSpan = c.rowspan;
         td.innerHTML = c.html;
+        if (D && rows.length > 1) {
+          const rr = ri === 0 ? 'head' : ri === rows.length - 1 ? 'last' : 'mid';
+          const cc = row.length < 2 ? 'mid' : ci === 0 ? 'first' : ci === row.length - 1 ? 'last' : 'mid';
+          const v = D[rr + ':' + cc] || D[rr + ':mid'] || D['mid:' + cc] || D['mid:mid'];
+          if (v) {
+            const bd = e => e ? e.w + 'pt solid ' + e.c : '0 none';
+            Object.assign(td.style, {
+              backgroundColor: v.fill || 'transparent',
+              borderTop: bd(v.edges[0]), borderLeft: bd(v.edges[1]), borderBottom: bd(v.edges[2]), borderRight: bd(v.edges[3]),
+              padding: v.inset[0] + 'pt ' + v.inset[3] + 'pt ' + v.inset[2] + 'pt ' + v.inset[1] + 'pt',
+              verticalAlign: v.valign === 'CenterAlign' ? 'middle' : v.valign === 'BottomAlign' ? 'bottom' : 'top'
+            });
+            // 칸 글 스타일: 매핑 표에서 직접 고르지 않았으면 IDML 표의 그 자리 스타일
+            const k = ri === 0 ? 'tableHead' : 'table';
+            if (v.para && S.clsById.has(v.para) && !userSet(k)) td.className = S.clsById.get(v.para);
+          }
+        }
         tr.append(td);
       }
       tb.append(tr);
@@ -813,15 +965,19 @@
       const bx = d.id && S.bxById && S.bxById.get(d.id);
       if (bx) el.classList.add(bx);
     };
+    S.units = blockUnits(blocks);
     blocks.forEach((b, bi) => {
       if (b.kind === 'break') { items.push({ kind: 'break' }); return; }
       if (b.kind === 'empty' && S.opts.skipEmpty && !b.boxed && !b.container) return;
       const key = roleKey(b, blocks[bi + 1]);
       used[key] = (used[key] || 0) + 1;
-      const st = resolveKey(key);
+      let st = resolveKey(key);
+      const u = S.units[bi];
+      const usid = u && unitStyle(u, st);
+      if (usid && usid !== st.desc.id && S.styleById.has(usid)) st = { cls: S.clsById.get(usid), desc: S.styleById.get(usid), mapped: true, key };
       const d = st.desc;
 
-      // IDML에서 이 스타일 앞에는 늘 장식만 있는 문단이 선다 (예: 프롬프트 머리)
+      // IDML에서 이 스타일 앞에는 늘 장식만 있는 문단이 선다 (예: 프롬프트 머리, 코칭·코드 머리 띠)
       let lead = d.id && precede[d.id];
       // 박스(컨테이너)의 첫 문단이면, 박스 안 어느 문단 스타일에든 머리 문단이 있으면 그것을 쓴다
       const pb = blocks[bi - 1];
@@ -832,18 +988,30 @@
           if (blocks[k].clast) break;
         }
       }
+      // 제목 블록(코칭 제목·코드 제목)인데 다음 블록 앞에 '글 자리가 있는 머리 띠'가 서면,
+      // 제목 글을 머리 띠의 자리에 넣고 제목 블록은 따로 그리지 않는다
+      let title = null;
+      if (b.kind === 'p' && /Title$/.test(b.role || '') && blocks[bi + 1]) {
+        const nsid = finalStyle(blocks, bi + 1);
+        const nl = (nsid && precede[nsid]) || lead;
+        const list = nl && (S.tpl.decos || {})[nl];
+        if (list && list.some(x => x.slot >= 0)) { lead = nl; title = b.text || ''; }
+      }
       const prev = items[items.length - 1];
       if (lead && S.styleById.has(lead) && !(prev && (prev.sid === lead || prev.sid === d.id))) {
         const ld = S.styleById.get(lead);
         const el = h('div', { class: S.clsById.get(lead) + ' pt-decopara' });
-        const dec = pickDeco(lead, {});
-        if (dec) el.append(decoEl(dec, null));
+        const dec = pickLead(lead, title);
+        // 글 자리가 있는데 넣을 글이 없으면 IDML 첫 사례 글 대신 비워 둔다
+        if (dec) el.append(decoEl(dec, dec.slot >= 0 ? (title || ' ') : null));
         el.append(document.createTextNode('​'));
         mark(el, ld, key, null);
         el.classList.remove('pt-onobj');
         el.dataset.kwn = '1';
         items.push({ kind: 'p', el, split: null, start: ld.startParagraph, sid: lead, virtual: true });
+        if (title != null) return;
       }
+      if (title != null && prev && prev.sid === lead) return;
 
       let el, split = 'text';
       if (b.kind === 'image') {
@@ -860,6 +1028,7 @@
         if (b.kind === 'empty') { el.classList.add('pt-empty-para'); el.innerHTML = '&#8203;'; split = null; }
         else el.innerHTML = b.html;
         if (b.key === 'code') el.classList.add('pt-code');
+        if (b.key === 'code' && u && u.i === 0) el.classList.add('pt-ustart');
         const dec = b.kind === 'p' && d.id ? pickDeco(d.id, b) : null;
         if (dec) el.prepend(decoEl(dec, b.tag));
         const bul = b.list && !dec && d.bullet;
@@ -890,6 +1059,205 @@
     return applyTemplates(items);
   }
 
+  // ---------- 같은 위상의 스타일 (블록별로 바꾸기) ----------
+  // 이름에서 위치 표시(S·C·E·O = 시작·중간·끝·한 줄)를 뺀 이름이 같고 같은 그룹이면 한 계열.
+  //   예: 코딩:본문_코딩S_별색_옅은 / …C… / …E… → 계열 '본문_코딩_별색_옅은'
+  // 같은 그룹의 다른 계열이 '같은 위상의 다른 요소'다 (코드 ↔ 실행 결과 ↔ 터미널 …).
+  // 위치 표시: 글자(S·C·E·O) 또는 한글 위치어(첫줄·중간·마지막 줄·한 줄 …)
+  const POS_RE = /([가-힣])([SCEO])(?=$|[_\s(])/i;
+  const POS_WORDS = [
+    [/첫\s*째?\s*줄|첫\s*행|처음|시작/, 'S'], [/마지막\s*줄?|끝\s*줄|끝/, 'E'], [/한\s*줄|단독/, 'O'], [/중간/, 'C']
+  ];
+  function splitPos(leaf) {
+    const m = leaf.match(POS_RE);
+    if (m) return { pos: m[2].toUpperCase(), rest: leaf.replace(POS_RE, '$1') };
+    for (const [re, p] of POS_WORDS) if (re.test(leaf)) return { pos: p, rest: leaf.replace(re, ' ') };
+    return { pos: '', rest: leaf };
+  }
+  function buildFamilies() {
+    const use = new Map();
+    for (const cand of Object.values(S.tpl.samples || {})) if (Array.isArray(cand)) for (const [si, c] of cand) use.set(si, (use.get(si) || 0) + c);
+    S.famOf = new Map();
+    S.fams = new Map();
+    const posN = new Map();
+    S.tpl.styles.forEach((st, si) => {
+      if (/^\[/.test(st.name)) return;
+      const leaf = String(st.name).split(':').pop().trim();
+      const { pos, rest } = splitPos(leaf);
+      // 계열 이름: 위치어·'사본'·공백 차이는 무시 (따라 코드_첫줄 사본 ≈ 따라코드_마지막 줄)
+      const key = rest.replace(/사본(\s*\d+)?/g, '').replace(/[\s_()-]+/g, '') || leaf;
+      const fid = (st.group || '') + '\u0000' + key;
+      let f = S.fams.get(fid);
+      if (!f) S.fams.set(fid, f = { id: fid, group: st.group || '', label: rest.replace(/사본(\s*\d+)?/g, '').replace(/[\s_]+$/, '').replace(/\s{2,}/g, ' ').trim() || leaf, pos: {}, ids: [], count: 0, top: null, topN: -1 });
+      const n = use.get(si) || 0;
+      // 같은 위치에 여러 스타일이 있으면 많이 쓴 것
+      if (pos && (!f.pos[pos] || n > (posN.get(fid + pos) || 0))) { f.pos[pos] = st.id; posN.set(fid + pos, n); }
+      f.ids.push(st.id);
+      f.count += n;
+      if (n > f.topN) { f.top = st.id; f.topN = n; }
+      S.famOf.set(st.id, f);
+    });
+  }
+
+  // 블록 안 위치에 맞는 계열 스타일 (한 줄이면 O, 처음 S, 중간 C, 끝 E. 없으면 가까운 것)
+  function posStyle(fam, i, n, fallback) {
+    const order = n <= 1 ? ['O', 'E', 'S', 'C'] : i === 0 ? ['S', 'C'] : i === n - 1 ? ['E', 'C'] : ['C', 'S'];
+    for (const p of order) if (fam.pos[p]) return fam.pos[p];
+    return fallback;
+  }
+  const hasPositions = fam => fam && ['S', 'C', 'E'].filter(p => fam.pos[p]).length >= 2;
+
+  // 원고 블록 → 바꿀 수 있는 단위. 코드는 이어진 코드 문단 전체(1×1 표 하나 = 한 단위), 나머지는 문단 하나.
+  // sig: 원고를 고쳐도 되도록 역할 + 첫 문단 글 + 같은 글의 몇 번째
+  function blockUnits(blocks) {
+    const units = new Array(blocks.length);
+    const seen = new Map();
+    const sigOf = (key, text) => {
+      const base = key + ':' + normText(text).slice(0, 80);
+      const k = (seen.get(base) || 0) + 1;
+      seen.set(base, k);
+      return base + '#' + k;
+    };
+    for (let i = 0; i < blocks.length; i++) {
+      const b = blocks[i];
+      if (b.kind !== 'p' && b.kind !== 'empty') continue;
+      const key = roleKey(b, blocks[i + 1]);
+      if (key === 'code') {
+        let j = i;
+        // 한 덩어리: ``` … ``` 하나, 1×1 표 하나, 또는 이어진 고정폭 문단
+        const isCode = x => x && (x.kind === 'p' || x.kind === 'empty') && x.key === 'code' && x.container === b.container;
+        const joins = (a, c) => isCode(c) && c.fence === a.fence && !c.boxStart && !a.boxEnd && !c.fenceStart && !a.fenceEnd;
+        while (joins(blocks[j], blocks[j + 1])) j++;
+        const first = blocks.slice(i, j + 1).find(x => x.kind === 'p');
+        const u = { sig: sigOf(key, first ? first.text : ''), key, from: i, n: j - i + 1 };
+        for (let k = i; k <= j; k++) units[k] = Object.assign({ i: k - i }, u);
+        i = j;
+        continue;
+      }
+      if (b.kind !== 'p') continue;
+      units[i] = { sig: sigOf(key, b.text), key, from: i, n: 1, i: 0 };
+    }
+    return units;
+  }
+
+  // 이 단위 문단에 쓸 스타일: 직접 고른 계열 > (코드) 매핑된 스타일의 계열을 위치에 맞게
+  function unitStyle(u, st) {
+    const chosen = S.blockOv && S.blockOv[u.sig];
+    if (chosen && S.styleById.has(chosen)) {
+      const fam = S.famOf && S.famOf.get(chosen);
+      return fam && hasPositions(fam) ? posStyle(fam, u.i, u.n, chosen) : chosen;
+    }
+    if (u.key === 'code' && st.mapped && st.desc.id) {
+      const fam = S.famOf && S.famOf.get(st.desc.id);
+      if (hasPositions(fam)) return posStyle(fam, u.i, u.n, st.desc.id);
+    }
+    return null;
+  }
+
+  // 미리보기에서 누른 블록 옆에 스타일 칩 → 같은 그룹의 다른 계열로 바꾸기
+  function closePicker() {
+    if (ui.picker) { ui.picker.remove(); ui.picker = null; }
+    if (ui.pages) for (const x of ui.pages.querySelectorAll('.pt-picked')) x.classList.remove('pt-picked');
+  }
+
+  function unitElements(u) {
+    const out = [];
+    for (let k = u.from; k < u.from + u.n; k++) out.push(...ui.pages.querySelectorAll('[data-bi="' + k + '"]'));
+    return out;
+  }
+
+  function famLabel(f) {
+    const ps = ['S', 'C', 'E', 'O'].filter(p => f.pos[p]);
+    return { name: f.label, pos: ps.length > 1 ? ps.join('·') : '' };
+  }
+
+  function openPicker(bi) {
+    closePicker();
+    const u = S.units && S.units[bi];
+    if (!u || !S.famOf) return;
+    const els = unitElements(u);
+    if (!els.length) return;
+    const sid = els[0].dataset.sid;
+    const cur = S.famOf.get(sid) || null; // 없으면 매핑이 없어 대체 모양으로 그린 블록
+    for (const x of els) x.classList.add('pt-picked');
+    const normalFam = S.famOf.get(S.mapping.normal);
+    let group = cur ? cur.group : normalFam ? normalFam.group : '';
+    const own = !!(S.blockOv && S.blockOv[u.sig]);
+    const roleCount = S.units.filter((x, k) => x && x.key === u.key && x.i === 0 && k === x.from).length;
+
+    const chip = h('button', { class: 'pt-chip', title: '이 블록의 스타일 바꾸기' });
+    chip.append(...[h('span', { class: 'pt-chip-name', text: cur ? famLabel(cur).name : '(매핑 없음)' }), own ? h('span', { class: 'pt-chip-own', text: '직접' }) : null, h('span', { text: '▾' })].filter(Boolean));
+    const menu = h('div', { class: 'pt-menu' });
+    // 같은 그룹이 기본, 다른 그룹도 고를 수 있게
+    const groups = new Map();
+    for (const f of S.fams.values()) if (f.count > 0 || f === cur) groups.set(f.group, (groups.get(f.group) || 0) + f.count);
+    const gsel = h('select', { class: 'pt-menu-group', title: 'IDML 스타일 그룹' });
+    for (const [g, n] of Array.from(groups).sort((a, b) => b[1] - a[1])) gsel.append(h('option', { value: g }, (g || '(그룹 없음)') + (n ? '  ' + n : '')));
+    gsel.value = group;
+    gsel.addEventListener('change', () => { group = gsel.value; fill(); });
+    const head = h('div', { class: 'pt-menu-head' }, h('span', { text: (KEY_LABEL[u.key] || u.key) + (u.n > 1 ? ' · ' + u.n + '줄' : '') }), gsel);
+    menu.append(head);
+    const list = h('div', { class: 'pt-menu-list' });
+    const fill = () => {
+    list.textContent = '';
+    // 이 책에서 실제로 쓴 계열만 (사본·안 쓴 스타일은 뺀다). 지금 것은 늘 보인다.
+    const alts = Array.from(S.fams.values()).filter(f => f.group === group && (f === cur || (f.count > 0 && !/사본/.test(f.label))))
+      .sort((a, b) => (b === cur) - (a === cur) || b.count - a.count || a.label.localeCompare(b.label));
+    for (const f of alts) {
+      const lb = famLabel(f);
+      const item = h('button', { class: 'pt-menu-item' + (f === cur ? ' pt-cur' : '') + (f.count ? '' : ' pt-unused'), title: f.ids.map(id => S.styleById.get(id).name).join('\n') },
+        h('span', { class: 'pt-mi-check', text: f === cur ? '✓' : '' }),
+        h('span', { class: 'pt-mi-name', text: lb.name }),
+        lb.pos ? h('span', { class: 'pt-mi-pos', text: lb.pos }) : null,
+        h('span', { class: 'pt-mi-n', text: f.count ? String(f.count) : '' }));
+      item.addEventListener('click', ev => { ev.stopPropagation(); setBlockStyle(u, f, applyAll.checked); });
+      list.append(item);
+    }
+    };
+    fill();
+    menu.append(list);
+    const applyAll = h('input', { type: 'checkbox' });
+    const foot = h('div', { class: 'pt-menu-foot' },
+      h('label', { title: '[⚙] 매핑 표의 이 역할을 바꿉니다' }, applyAll, ' 이 역할 전체(' + (KEY_LABEL[u.key] || u.key) + ' ' + roleCount + '개)에 적용'),
+      own ? h('button', { class: 'pt-btn', onclick: ev => { ev.stopPropagation(); setBlockStyle(u, null, false); } }, '원래대로') : null);
+    menu.append(foot);
+    menu.addEventListener('click', ev => ev.stopPropagation());
+    chip.addEventListener('click', ev => { ev.stopPropagation(); menu.classList.toggle('pt-show'); });
+
+    const box = h('div', { class: 'pt-picker' }, chip, menu);
+    // 블록이 있는 쪽(wrap)에 비율로 붙인다: 확대·축소, 다시 그리기에도 자리가 맞는다
+    const wrap = els[0].closest('.pt-wrap');
+    if (!wrap) return;
+    const wr = wrap.getBoundingClientRect();
+    const r = els[0].getBoundingClientRect();
+    const right = Math.max(...els.filter(x => x.closest('.pt-wrap') === wrap).map(x => x.getBoundingClientRect().right));
+    box.style.top = 'calc(' + ((r.top - wr.top) / wr.height * 100) + '% - 22px)';
+    box.style.left = ((right - wr.left) / wr.width * 100) + '%';
+    wrap.append(box);
+    ui.picker = box;
+    ui.picker.dataset.bi = String(bi);
+  }
+
+  async function setBlockStyle(u, fam, all) {
+    const bi = u.from;
+    if (all && fam) {
+      S.overrides = S.overrides || {};
+      S.overrides[u.key] = fam.top || fam.ids[0];
+      await store.set({ [K.ovr(S.tplId)]: S.overrides });
+      // 역할 전체를 바꾸면 이 블록만 바꾼 것은 지운다
+      if (S.blockOv) delete S.blockOv[u.sig];
+    } else {
+      S.blockOv = S.blockOv || {};
+      if (fam) S.blockOv[u.sig] = fam.top || fam.ids[0];
+      else delete S.blockOv[u.sig];
+    }
+    await store.set({ [K.blk(S.docId, S.tplId)]: S.blockOv || {} });
+    closePicker();
+    await relayout();
+    renderDrawer();
+    setTimeout(() => openPicker(bi), 50);
+  }
+
   // ---------- IDML 장식 ----------
   // 스타일에 되풀이해 붙던 인라인 개체 중 이 문단에 맞는 것. 원고 표식(tag)이 있으면 같은 글의 변형을 고른다.
   function pickDeco(styleId, b) {
@@ -902,12 +1270,30 @@
       if (hit) return hit;
       // 같은 글의 변형이 없으면 가장 흔한 변형의 첫 글 자리에 표식을 넣는다
       const base = list[0];
+      if (base.slot >= 0) return base;
       const texts = base.items.filter(i => i.type === 'text');
       const k = texts.findIndex(t => (t.paragraphs || []).some(p => p.runs.length));
       return k >= 0 ? Object.assign({}, base, { slot: k }) : base;
     }
     // 표식이 없는 문단에는 글이 늘 같은 장식만
     return list.find(x => x.slot < 0) || null;
+  }
+
+  // 머리 문단 장식: 제목이 있으면 글 자리가 있는 변형, 없으면 글이 늘 같은 변형(없으면 첫 변형을 빈 자리로)
+  function pickLead(styleId, title) {
+    const list = (S.tpl.decos || {})[styleId];
+    if (!list || !list.length) return null;
+    if (title != null) return list.find(x => x.slot >= 0) || list[0];
+    return list.find(x => x.slot < 0) || list[0];
+  }
+
+  // k번째 원고 블록에 실제로 쓰는 스타일 id (역할 매핑 + 블록 안 위치·직접 고른 것)
+  function finalStyle(blocks, k) {
+    const b = blocks[k];
+    if (!b) return '';
+    const st = resolveKey(roleKey(b, blocks[k + 1]));
+    const u = S.units && S.units[k];
+    return (u && unitStyle(u, st)) || st.desc.id || '';
   }
 
   function decoEl(dec, tag) {
@@ -1413,6 +1799,7 @@
     if (!S.tpl) { renderEmpty(); return; }
     if (!S.doc) { renderEmpty(); return; }
     const run = ++S.run;
+    closePicker();
     S.laying = true;
     setStatus('조판 중…', true);
     clearError();
@@ -1582,8 +1969,8 @@
       sel.value = S.overrides && S.overrides[key] && S.styleById.has(S.overrides[key]) ? S.overrides[key] : '';
       const src = sourceOf(key);
       const stat = S.learnStats && S.learnStats[key];
-      const badge = src ? h('span', { class: 'pt-count', title: stat && stat.tpl ? 'IDML 반복 틀에서 번호 다음 자리의 스타일' : stat ? '원고 문단 ' + stat.total + '개 중 ' + stat.hit + '개가 IDML에서 이 스타일' : '' },
-        src + (src === '학습' && stat && stat.tpl ? ' (틀)' : src === '학습' && stat ? ' ' + stat.hit + '/' + stat.total : '')) : null;
+      const badge = src ? h('span', { class: 'pt-count', title: stat && stat.tpl ? 'IDML 반복 틀에서 번호 다음 자리의 스타일' : stat && stat.mono ? 'IDML에서 가장 많이 쓴 고정폭 글꼴 스타일' : stat && stat.heading ? '본문 흐름에서 자주 쓰는, 본문보다 크고 굵은 스타일 (큰 것부터 제목 3, 4…)' : stat && stat.body ? 'IDML에서 가장 많이 쓴 일반 스타일' : stat && stat.tag ? '원고 표식과 같은 글이 든 IDML 머리 띠가 앞에 서는 스타일' : stat && stat.table ? 'IDML에서 가장 흔한 표의 칸 글 스타일' : stat ? '원고 문단 ' + stat.total + '개 중 ' + stat.hit + '개가 IDML에서 이 스타일' : '' },
+        src + (src === '학습' && stat && stat.tpl ? ' (틀)' : src === '학습' && stat && stat.mono ? ' (고정폭)' : src === '학습' && stat && stat.heading ? ' (제목 모양)' : src === '학습' && stat && stat.body ? ' (가장 많이 씀)' : src === '학습' && stat && stat.tag ? ' (머리 띠)' : src === '학습' && stat && stat.table ? ' (표)' : src === '학습' && stat ? ' ' + stat.hit + '/' + stat.total : '')) : null;
       table.append(h('tr', null,
         h('td', null, KEY_LABEL[key] || key, counts[key] ? h('span', { class: 'pt-count' }, String(counts[key]) + '개') : null),
         h('td', null, h('div', { style: 'display:flex;gap:6px;align-items:center' }, sel, badge))));
@@ -1849,8 +2236,9 @@
 
   async function onViewerClick(e) {
     const t = e.target.closest && e.target.closest('[data-bi]');
-    if (!t) return;
+    if (!t) { if (!(e.target.closest && e.target.closest('.pt-picker'))) closePicker(); return; }
     const bi = parseInt(t.dataset.bi, 10);
+    openPicker(bi);
     SY.muteDocs = Date.now() + 1200;
     if (SY.offsets && SY.fails <= 3) {
       const off = SY.offsets[bi];
