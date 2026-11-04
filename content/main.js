@@ -10,21 +10,22 @@
 
   const KEY_LABEL = {
     title: '제목 (Title)', subtitle: '부제목',
-    h1: '장 제목 (제목 1)', chapterNum: '장 번호', goal: '학습 목표', toc: '장 공부 내용 표',
-    h2: '절 제목 (제목 2)', sectionNum: '절 번호',
+    chapterNum: '장 번호', h1: '장 제목 (제목 1)', goalTitle: '학습 목표 제목', goal: '학습 목표', tocTitle: '공부 내용 제목', toc: '공부 내용 표',
+    sectionNum: '절 번호', h2: '절 제목 (제목 2)', sectionMeta: '난이도·학습 날짜',
     h3: '제목 3', h4: '제목 4', h5: '제목 5', h6: '제목 6',
     normal: '일반 텍스트', li: '글머리 목록', liLast: '글머리 목록 (끝)', ol: '번호 목록', olLast: '번호 목록 (끝)',
-    code: '코드', box: '박스 (1×1 표)', table: '표 본문', tableHead: '표 머리', footnote: '각주', image: '그림', caption: '그림 설명',
-    note: 'NOTE·TIP', coachTitle: '1:1 코칭 제목', coach: '1:1 코칭 본문', coachLast: '1:1 코칭 본문 (끝)',
+    code: '코드', box: '박스', table: '표 본문', tableHead: '표 머리', footnote: '각주', image: '그림', caption: '그림 설명',
+    warmup: '워밍업', note: 'NOTE·TIP', coachTitle: '1:1 코칭 제목', coach: '1:1 코칭 본문', coachLast: '1:1 코칭 본문 (끝)',
     prompt: '프롬프트', promptLast: '프롬프트 (끝)', ai: 'AI 답변', aiLast: 'AI 답변 (끝)',
-    summaryTitle: '핵심 요약 제목', summary: '핵심 요약 목록', practice: '바로 실습 제목', warmup: '워밍업'
+    practice: '실습 제목', summaryTitle: '요약 제목', summary: '요약 목록'
   };
   // 매핑이 없을 때 차례로 빌려 쓸 키
   const KEY_FALLBACK = {
     liLast: ['li'], olLast: ['ol', 'li'], ol: ['li'], tableHead: ['table'], caption: ['image'],
     coachTitle: ['box'], coach: ['box'], coachLast: ['coach', 'box'],
     prompt: ['box'], promptLast: ['prompt', 'box'], ai: ['box'], aiLast: ['ai', 'box'],
-    summaryTitle: ['h3'], summary: ['li'], practice: ['h3'], warmup: ['box'], goal: ['normal'], toc: ['table']
+    summaryTitle: ['h3'], summary: ['li'], practice: ['h3'], warmup: ['box'],
+    goalTitle: ['h3'], goal: ['normal'], tocTitle: ['h3'], toc: ['table'], sectionMeta: ['normal']
   };
   const KEY_ORDER = Object.keys(KEY_LABEL);
   const HEADING_KEYS = new Set(['title', 'subtitle', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
@@ -33,7 +34,7 @@
     width: Math.round(Math.min(720, Math.max(420, window.innerWidth * 0.42))),
     spread: true, zoom: 1, wordBreak: 'keep-all', skipEmpty: true, grid: false,
     startPage: 1, autoRefresh: true, push: true,
-    markup: true, chapterSpread: 'even', accent: '', syncScroll: true, syncCursor: true
+    markup: true, keepHeadings: false, syncScroll: true, syncCursor: true
   };
 
   // ---------- 저장소 ----------
@@ -44,7 +45,7 @@
   };
   const K = {
     opts: 'pt:opts', index: 'pt:templates', last: 'pt:last',
-    tpl: id => 'pt:tpl:' + id, map: id => 'pt:map:' + id, doc: id => 'pt:doc:' + id
+    tpl: id => 'pt:tpl:' + id, ovr: id => 'pt:ovr:' + id, doc: id => 'pt:doc:' + id
   };
 
   // ---------- 상태 ----------
@@ -146,7 +147,6 @@
 .pt-col{flex:none;height:100%;overflow:hidden;display:flow-root;position:relative}
 .pt-col>*{margin:0;box-sizing:border-box}
 .pt-col>.pt-first{padding-top:0!important}
-.pt-col>.pt-first.pt-boxed.pt-box-start{padding-top:4pt!important}
 .pt-cont{text-indent:0!important;padding-top:0!important}
 .pt-broken{padding-bottom:0!important}
 .pt-marker{display:inline-block;width:1.2em;margin-left:-1.2em;text-indent:0}
@@ -155,17 +155,10 @@
 .pt-page code{font-family:"D2Coding","Menlo","Consolas",monospace;font-size:.92em}
 .pt-page sup{font-size:.65em;line-height:0;vertical-align:.45em}
 .pt-page sub{font-size:.65em;line-height:0;vertical-align:-.2em}
-.pt-boxed{border-left:.5pt solid rgba(0,0,0,.25);border-right:.5pt solid rgba(0,0,0,.25)}
-.pt-boxed.pt-box-start{border-top:.5pt solid rgba(0,0,0,.25);padding-top:4pt}
-.pt-boxed.pt-box-end{border-bottom:.5pt solid rgba(0,0,0,.25);padding-bottom:4pt}
-.pt-col>.pt-boxed.pt-box-end+*:not(.pt-boxed){margin-top:6pt}
-.pt-col>*:not(.pt-boxed)+.pt-boxed.pt-box-start{margin-top:6pt}
 .pt-img{text-indent:0!important}
 .pt-img img{display:inline-block;max-width:100%;height:auto;max-height:var(--colh);object-fit:contain;vertical-align:top}
 .pt-table{border-collapse:collapse;width:100%;text-indent:0!important}
 .pt-table td{border:.5pt solid #555;padding:2pt 3pt;vertical-align:top;text-align:left}
-.pt-table tr:first-child td{background:rgba(0,0,0,.06);font-weight:600}
-.pt-table.pt-cont tr:first-child td{background:none;font-weight:inherit}
 .pt-empty-para{min-height:1lh}
 .pt-overset{outline:1.5pt solid #d93025;outline-offset:-1.5pt}
 .pt-shapes{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
@@ -173,88 +166,8 @@
 .pt-mframe>div{text-indent:0;padding-top:0;padding-bottom:0;white-space:pre-wrap}
 .pt-grid{position:absolute;pointer-events:none}
 
-/* ---- 디자인 컴포넌트 (집필 마크업) ---- */
-.pt-panel{--accent:rgb(232 105 46)}
-.pt-page{--soft:color-mix(in srgb,var(--accent) 20%,white);--pale:color-mix(in srgb,var(--accent) 9%,white);--sans:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif}
-.pt-page sup{color:var(--accent)}
-.pt-col>[data-key^="h"],.pt-section,.pt-warmup,.pt-c.pt-cfirst{clear:both}
-.pt-tag{display:inline-block;background:var(--accent);color:#fff;font-family:var(--sans);font-weight:700;font-style:normal;font-size:.72em;line-height:1.55;padding:0 .5em;border-radius:2pt;margin-right:.45em;vertical-align:.1em;text-indent:0;letter-spacing:0}
-.pt-tag-inv{background:#fff;color:var(--accent)}
-.pt-step{color:var(--accent);font-family:var(--sans);font-weight:700;letter-spacing:-.02em}
-.pt-comp-step{text-indent:0!important}
-.pt-comp-note{text-indent:0!important;margin:3pt 0 6pt}
-.pt-comp-note.pt-um{background:#efefef;padding:3pt 6pt!important}
-.pt-comp-note:not(.pt-um){background-color:#f0f0f0;padding-top:3pt!important;padding-bottom:3pt!important}
-.pt-comp-practice{text-indent:0!important}
-.pt-comp-practice .pt-tag{font-size:.8em;padding:.05em .55em;border-radius:3pt 0 3pt 0;color:#fff!important}
-.pt-comp-practice{color:var(--accent)!important;background:none!important}
-.pt-float{float:right;width:27%;margin:0 0 4pt 8pt;padding:0!important;text-indent:0}
-.pt-float img{width:100%}
-/* 컨테이너 공통 */
-.pt-c{text-indent:0!important;border-left:.75pt solid transparent;border-right:.75pt solid transparent}
-.pt-c.pt-um{padding-left:8pt!important;padding-right:8pt!important}
-.pt-c:not(.pt-um){padding-right:6pt!important}
-.pt-c.pt-cfirst{margin-top:8pt}
-.pt-c.pt-clast{margin-bottom:8pt;padding-bottom:6pt!important}
-.pt-col>.pt-c.pt-first{margin-top:0}
-.pt-c.pt-cont{border-top:0!important}
-.pt-c.pt-broken{border-bottom:0!important}
-.pt-clabel{font-family:var(--sans);font-weight:700;font-size:.8em;letter-spacing:0}
-.pt-comp-ctitle{padding-top:4pt!important;padding-bottom:3pt!important;font-family:var(--sans)}
-/* 1:1 코칭 */
-.pt-c-coach{border-color:var(--accent)}
-.pt-c-coach.pt-clast{border-bottom:.75pt solid var(--accent)}
-.pt-c-coach.pt-comp-ctitle{border-radius:5pt 5pt 0 0;background-color:var(--accent);color:#fff}
-.pt-c-coach.pt-comp-ctitle.pt-um{font-weight:700}
-.pt-c-coach.pt-comp-ctitle .pt-clabel{display:inline-block;background:#fff;color:var(--accent);padding:0 .45em;border-radius:2pt;margin-right:.4em}
-.pt-c-coach.pt-comp-ctitle+.pt-c-coach{padding-top:5pt!important}
-/* 프롬프트 / AI 말풍선 */
-.pt-c-prompt.pt-um{background:var(--pale)}
-.pt-c-ai.pt-um{background:var(--soft)}
-.pt-c-prompt.pt-cfirst,.pt-c-ai.pt-cfirst{border-radius:6pt 6pt 0 0}
-.pt-c-prompt.pt-clast,.pt-c-ai.pt-clast{border-radius:0 0 6pt 6pt}
-.pt-c-prompt.pt-cfirst.pt-clast,.pt-c-ai.pt-cfirst.pt-clast{border-radius:6pt}
-.pt-c-prompt+.pt-c-ai.pt-cfirst,.pt-c-ai+.pt-c-prompt.pt-cfirst{margin-top:5pt}
-.pt-c-prompt .pt-clabel,.pt-c-ai .pt-clabel{color:var(--accent)}
-.pt-c-prompt .pt-clabel::before{content:"🙋 "}
-.pt-c-ai .pt-clabel::before{content:"🤖 "}
-/* 일반 박스 */
-.pt-c-box{border-color:#bbb}
-.pt-c-box.pt-cfirst{border-top:.75pt solid #bbb}
-.pt-c-box.pt-clast{border-bottom:.75pt solid #bbb}
-/* 핵심 요약 */
-.pt-comp-summary-title{clear:both;margin-top:10pt;padding:3pt 8pt!important;background:var(--accent);color:#fff!important;border-radius:5pt 5pt 0 0;text-indent:0!important}
-.pt-comp-summary-title.pt-um{font-family:var(--sans)}
-.pt-c-summary{background:var(--pale);border-color:var(--accent)}
-.pt-c-summary.pt-clast{border-bottom:.75pt solid var(--accent)}
-.pt-comp-summary-title+.pt-c-summary{padding-top:5pt!important}
-/* 절 배너 */
-.pt-section{display:flex;align-items:stretch;background:var(--soft);border-radius:0 0 12pt 0;margin:0 0 12pt;padding:0}
-.pt-sec-num{flex:none;line-height:1!important;color:var(--accent)!important;padding:10pt 10pt 6pt 8pt!important;display:flex;align-items:center;text-indent:0!important;background:none!important}
-.pt-sec-num.pk-sectionNum{font-family:var(--sans)}
-.pt-sec-box{flex:1;display:flex;align-items:center;gap:6pt;background:var(--accent);border-radius:12pt 0 12pt 0;padding:8pt 10pt}
-.pt-sec-title{flex:1;color:#fff!important;padding:0!important;margin:0;text-indent:0!important;background:none!important}
-.pt-sec-meta{flex:none;display:flex;flex-direction:column;gap:3pt;font-family:var(--sans);font-size:6.5pt;color:#fff;text-align:right}
-.pt-sec-date::after{content:"";display:block;width:34pt;height:6pt;margin-top:2pt;background:#fff;border-radius:3pt}
-/* 워밍업 */
-.pt-warmup{display:flex;gap:10pt;margin:0 0 10pt}
-.pt-warm-left{flex:0 0 34%;border-top:1.5pt solid var(--accent);padding:4pt 0 0!important;text-indent:0!important;background:none!important}
-.pt-warm-right{flex:1;padding:0!important}
-/* 장 도비라 */
-.pt-chapter{position:absolute;inset:0;font-family:var(--sans);overflow:hidden}
-.pt-chapter-0{background:var(--accent);color:#fff}
-.pt-chapter-1{background:var(--accent)}
-.pt-ch-num{position:absolute;left:14%;top:16%;font-size:96pt!important;line-height:1!important;letter-spacing:-.04em;color:#fff!important;padding:0!important;text-align:left!important}
-.pt-ch-num span{font-family:var(--sans);font-size:22pt;font-weight:700;margin-left:6pt;letter-spacing:0}
-.pt-ch-rule{position:absolute;left:14%;right:0;top:41%;border-top:.75pt solid rgba(255,255,255,.8)}
-.pt-ch-goal{position:absolute;left:14%;right:14%;top:50%;color:#fff!important;text-indent:0!important;padding:0!important;font-family:var(--sans)!important;font-weight:500!important;font-size:8.5pt!important;line-height:1.75!important}
-.pt-ch-goal-text{margin-top:6pt}
-.pt-ch-panel{position:absolute;left:0;right:8%;top:6%;bottom:6%;background:var(--soft);border-radius:0 18pt 18pt 0}
-.pt-ch-title{position:absolute;left:10%;right:14%;top:22%;color:var(--accent)!important;padding:0!important;background:none!important}
-.pt-ch-title.pk-h1{text-align:right!important;text-align-last:right!important;font-size:20pt!important;line-height:1.3!important}
-.pt-ch-rule2{position:absolute;left:0;right:8%;top:41%;border-top:.75pt solid var(--accent)}
-.pt-ch-toc{position:absolute;left:8%;right:14%;bottom:12%;background:#fff}
-.pt-ch-toc .pt-table{font-size:7pt}
+/* 흰 글자인데 바탕(IDML 개체)을 아직 못 그리는 자리: 읽을 수 있게 회색 바탕 */
+.pt-onobj{background-color:#8a8f98!important;outline:1px dashed #5f6368;outline-offset:-1px}
 /* 커서 위치 표시 */
 .pt-cursor{box-shadow:-5pt 0 0 -2pt rgb(26 115 232)}
 `;
@@ -423,17 +336,21 @@
     let tpl = null;
     if (id === PTDefaults.BUILTIN.id) tpl = PTDefaults.BUILTIN; // 테스트용 (목록에는 안 보임)
     else {
-      const got = await store.get([K.tpl(id), K.map(id)]);
+      const got = await store.get([K.tpl(id), K.ovr(id)]);
       tpl = got[K.tpl(id)] || null;
-      if (tpl) S.mapping = got[K.map(id)] || PTDefaults.guessMapping(tpl);
+      S.overrides = got[K.ovr(id)] || {};
     }
     if (!tpl) { clearTemplate(); return; }
     if (tpl.builtin) {
-      const got = await store.get(K.map(id));
-      S.mapping = got[K.map(id)] || PTDefaults.guessMapping(tpl);
+      const got = await store.get(K.ovr(id));
+      S.overrides = got[K.ovr(id)] || {};
     }
     S.tpl = tpl;
     S.tplId = id;
+    S.nameGuess = PTDefaults.guessMapping(tpl);
+    S.learned = {};
+    S.learnStats = {};
+    combineMapping();
     prepareStyles();
     await ensureFonts();
     syncHeader();
@@ -466,8 +383,7 @@
       if (source) for (const [oid, info] of Object.entries(S.index)) {
         if (oid !== id && info.source === source) { delete S.index[oid]; store.remove([K.tpl(oid)]); }
       }
-      const mapping = PTDefaults.guessMapping(tpl);
-      await store.set({ [K.tpl(id)]: tpl, [K.map(id)]: mapping, [K.index]: S.index, [K.doc(S.docId)]: id, [K.last]: id });
+      await store.set({ [K.tpl(id)]: tpl, [K.index]: S.index, [K.doc(S.docId)]: id, [K.last]: id });
       await loadTemplate(id);
       if (!ui.drawer.classList.contains('pt-show')) { ui.drawer.classList.add('pt-show'); ui.gearBtn.classList.add('pt-on'); renderDrawer(); }
       if (S.doc) relayout(); else refresh(true);
@@ -555,7 +471,7 @@
   async function deleteTemplate(id) {
     if (!id || id === PTDefaults.BUILTIN.id) return;
     delete S.index[id];
-    await store.remove([K.tpl(id), K.map(id)]);
+    await store.remove([K.tpl(id), K.ovr(id)]);
     await store.remove([K.doc(S.docId), K.last]);
     await chooseInitialTemplate();
     if (S.tpl) relayout(); else renderEmpty();
@@ -581,18 +497,15 @@
       normal: base,
       li: derive(base, { firstIndent: 0 }), ol: derive(base, { firstIndent: 0 }),
       code: derive(base, { font: { family: 'D2Coding', style: 'Regular' }, mono: true, size: Z * 0.88, leading: L * 0.85, tracking: 0, firstIndent: 0, justification: 'LeftAlign', shading: 'rgb(242 242 242)', leftIndent: 6, rightIndent: 6 }),
-      box: derive(base, { firstIndent: 0, shading: 'rgb(238 243 250)', leftIndent: 8, rightIndent: 8 }),
+      box: derive(base, { firstIndent: 0 }),
       table: derive(base, { size: Z * 0.88, leading: L * 0.85, firstIndent: 0, justification: 'LeftAlign' }),
       footnote: derive(base, { size: Z * 0.8, leading: L * 0.8, firstIndent: 0, justification: 'LeftAlign' }),
       image: derive(base, { firstIndent: 0, justification: 'CenterAlign', spaceBefore: L * 0.5, spaceAfter: L * 0.5 }),
       note: derive(base, { size: Z * 0.85, leading: L * 0.85, firstIndent: 0, justification: 'LeftAlign', spaceBefore: 0, spaceAfter: 0 }),
-      sectionNum: derive(head(2.6, 0), { weight: 300, leading: Z * 2.6, spaceAfter: 0, color: null }),
-      chapterNum: derive(head(9, 0), { weight: 100, leading: Z * 9, spaceAfter: 0, color: null })
+      sectionNum: head(1.35, 1.5),
+      chapterNum: head(1.6, 2)
     };
-    S.fallback.sectionNum.font = { family: 'Apple SD Gothic Neo', style: 'Light' };
-    S.fallback.chapterNum.font = { family: 'Apple SD Gothic Neo', style: 'Thin' };
-    S.accent = pickAccent();
-    ui.panel.style.setProperty('--accent', S.accent);
+
     let css = '';
     tpl.styles.forEach((s, i) => { css += PTStyle.rulesFor('.ps-' + i, s); });
     for (const k of Object.keys(S.fallback)) css += PTStyle.rulesFor('.pk-' + k, S.fallback[k]);
@@ -679,24 +592,59 @@
     return out;
   }
 
-  // 강조색: 옵션 > 제목 스타일 글자색 > 단락 음영색 > 기본 주황
-  function pickAccent() {
-    if (S.opts.accent) return S.opts.accent;
-    // 무채색(검정·흰색·회색)은 강조색 후보에서 뺀다
-    const chromatic = c => {
-      const m = String(c || '').match(/\d+/g);
-      if (!m || m.length < 3) return false;
-      const [r, g, b] = m.slice(0, 3).map(Number);
-      return Math.max(r, g, b) - Math.min(r, g, b) > 60;
+  // ---------- 매핑 ----------
+  // 우선순위: 직접 지정 > IDML 본문에서 배운 것 > 스타일 이름 일반 규칙
+  function combineMapping() {
+    S.mapping = Object.assign({}, S.nameGuess || {}, S.learned || {}, S.overrides || {});
+  }
+
+  function sourceOf(key) {
+    if (S.overrides && S.overrides[key]) return '직접';
+    if (S.learned && S.learned[key]) return '학습';
+    if (S.nameGuess && S.nameGuess[key]) return '이름';
+    return '';
+  }
+
+  // 원고 문단 텍스트를 IDML 본문 샘플(텍스트 → 스타일)에 대 보고, 역할마다 가장 많이 맞은 스타일을 고른다
+  function learnMapping(blocks) {
+    S.learned = {};
+    S.learnStats = {};
+    const samples = S.tpl && S.tpl.samples;
+    if (!samples) return;
+    const tally = {};
+    // 같은 텍스트가 여러 스타일에 있으면 횟수 비율만큼 나눠서 표를 준다
+    const add = (role, text) => {
+      const k = PTIdml.sampleKey(text);
+      const cand = k && samples[k];
+      if (!Array.isArray(cand) || !cand.length) return;
+      const sum = cand.reduce((a, c) => a + c[1], 0);
+      const t = tally[role] || (tally[role] = { total: 0, by: {} });
+      t.total++;
+      for (const [si, c] of cand) t.by[si] = (t.by[si] || 0) + c / sum;
     };
-    for (const k of ['sectionNum', 'h3', 'h2', 'h1', 'title', 'coachTitle']) {
-      const id = S.mapping[k];
-      const st = id && S.styleById.get(id);
-      if (st && chromatic(st.color)) return st.color;
-      if (st && chromatic(st.shading)) return st.shading;
+    blocks.forEach((b, i) => {
+      const role = roleKey(b, blocks[i + 1]);
+      if (b.kind === 'p' && b.text) add(role, b.text);
+      else if (b.kind === 'table') {
+        b.rows.forEach((row, ri) => row.forEach(c => (c.paras || []).forEach(p => add(ri === 0 ? (role === 'toc' ? 'toc' : 'tableHead') : role, p.text))));
+      }
+    });
+    // 동점이면 러닝헤드 변수(단락 스타일 일치)가 가리키는 스타일 = 구조 스타일을 조금 더 믿는다
+    const varIdx = new Set(Object.values(S.tpl.variables || {}).filter(v => v.kind === 'style')
+      .map(v => S.tpl.styles.findIndex(st => st.id === v.styleId)).filter(i => i >= 0).map(String));
+    for (const [role, t] of Object.entries(tally)) {
+      let best = null, n = 0, score = 0;
+      for (const [si, c] of Object.entries(t.by)) {
+        const sc = c * (varIdx.has(si) ? 1.5 : 1);
+        if (sc > score) { best = si; n = c; score = sc; }
+      }
+      if (varIdx.has(best)) n = Math.min(t.total, n * 1.5);
+      const st = S.tpl.styles[best];
+      if (st && n / t.total >= 0.5) {
+        S.learned[role] = st.id;
+        S.learnStats[role] = { hit: Math.round(n * 10) / 10, total: t.total };
+      }
     }
-    for (const st of S.tpl.styles) if (chromatic(st.color)) return st.color;
-    return 'rgb(232 105 46)';
   }
 
   function resolveKey(key) {
@@ -751,97 +699,22 @@
     return el;
   }
 
-  // 장 도비라: 왼쪽 면(장 번호·학습 목표) + 오른쪽 면(장 제목·이 장의 내용)
-  function chapterItem(b, bi, vs) {
-    const h1 = resolveKey('h1');
-    const num = resolveKey('chapterNum');
-    const body = resolveKey('goal');
-    const tableSt = resolveKey('toc');
-    return {
-      kind: 'fixed', count: 2, startOn: S.opts.chapterSpread === 'odd' ? 'odd' : 'even', bi,
-      render(page, k) {
-        const wrap = h('div', { class: 'pt-chapter pt-chapter-' + k, 'data-bi': String(bi) });
-        if (k === 0) {
-          wrap.append(
-            h('div', { class: 'pt-ch-num ' + num.cls }, b.number || '', h('span', null, b.number ? '장' : '')),
-            h('div', { class: 'pt-ch-rule' }));
-          if (b.goal) {
-            const goal = h('div', { class: 'pt-ch-goal ' + body.cls });
-            goal.innerHTML = '<span class="pt-tag pt-tag-inv">' + esc(b.goalTitle || '학습 목표') + '</span><div class="pt-ch-goal-text">' + b.goal + '</div>';
-            wrap.append(goal);
-          }
-        } else {
-          const title = h('div', { class: 'pt-ch-title ' + h1.cls });
-          title.textContent = b.title;
-          wrap.append(h('div', { class: 'pt-ch-panel' }), title, h('div', { class: 'pt-ch-rule2' }));
-          if (b.toc) wrap.append(h('div', { class: 'pt-ch-toc' }, tableEl(b.toc, tableSt.cls, resolveKey('tableHead').cls)));
-        }
-        // 러닝헤드용 표식 (보이지 않음): 장 번호·장 제목 변수가 따로 있으면 나눠서
-        const numVar = num.desc.id && vs.has(num.desc.id);
-        if (numVar) wrap.append(h('div', { hidden: true, 'data-sid': num.desc.id, 'data-vt': (b.number ? b.number + '장' : '') }));
-        if (h1.desc.id && vs.has(h1.desc.id)) wrap.append(h('div', { hidden: true, 'data-sid': h1.desc.id, 'data-vt': numVar ? b.title : b.text }));
-        page.el.append(wrap);
-      }
-    };
-  }
-
-  function sectionEl(b, st, vs) {
-    const el = h('div', { class: 'pt-section' });
-    const num = resolveKey('sectionNum');
-    const title = h('div', { class: 'pt-sec-title ' + st.cls }, b.title);
-    const meta = h('div', { class: 'pt-sec-meta' });
-    if (b.level) meta.append(h('span', { class: 'pt-sec-level' }, '난이도 ' + b.level));
-    if (b.date) meta.append(h('span', { class: 'pt-sec-date' }, '학습 날짜'));
-    el.append(h('div', { class: 'pt-sec-num ' + num.cls }, b.number), h('div', { class: 'pt-sec-box' }, title, meta));
-    // 러닝헤드: 절 번호 변수가 따로 있으면 번호/제목을 나눠 기록
-    const numVar = num.desc.id && vs.has(num.desc.id);
-    if (numVar) el.append(h('span', { hidden: true, 'data-sid': num.desc.id, 'data-vt': b.number }));
-    el.dataset.vtTitle = numVar ? b.title : b.text;
-    return el;
-  }
-
-  function warmupEl(b) {
-    const body = resolveKey('normal');
-    const box = resolveKey('box');
-    const label = resolveKey('warmup');
-    const left = h('div', { class: 'pt-warm-left ' + box.cls });
-    const lf = label.mapped ? 'font-family:' + esc(PTStyle.familyStack(label.desc.font)) + ';font-weight:' + PTStyle.fontWeight(label.desc.font.style) : '';
-    left.innerHTML = '<span class="pt-tag" style="' + lf + '">워밍업</span><br>' + b.left;
-    const right = h('div', { class: 'pt-warm-right ' + body.cls });
-    right.innerHTML = b.right;
-    return h('div', { class: 'pt-warmup' }, left, right);
-  }
-
-  function buildItems() {
+  function buildItems(blocks) {
     const items = [];
     const vs = varStyleSet();
-    const blocks = S.opts.markup ? PTMarkup.apply(S.doc.blocks) : S.doc.blocks;
-    S.blocks = blocks;
     const used = {};
     blocks.forEach((b, bi) => {
       if (b.kind === 'break') { items.push({ kind: 'break' }); return; }
       if (b.kind === 'empty' && S.opts.skipEmpty && !b.boxed && !b.container) return;
-      if (b.kind === 'chapter') {
-        for (const k of ['h1', 'chapterNum', 'goal', 'toc']) used[k] = (used[k] || 0) + 1;
-        items.push(chapterItem(b, bi, vs));
-        return;
-      }
       const key = roleKey(b, blocks[bi + 1]);
       used[key] = (used[key] || 0) + 1;
       const st = resolveKey(key);
       const d = st.desc;
       let el, split = 'text';
-      if (b.kind === 'section') {
-        el = sectionEl(b, st, vs);
-        split = null;
-      } else if (b.kind === 'warmup') {
-        el = warmupEl(b);
-        split = null;
-      } else if (b.kind === 'image') {
+      if (b.kind === 'image') {
         el = h('div', { class: 'pt-img ' + st.cls });
         const img = h('img', { src: b.src, alt: b.alt || '', 'data-w': String(b.w || ''), 'data-h': String(b.h || '') });
-        if (b.float) el.classList.add('pt-float');
-        else img.style.width = Math.round(b.ratio * 1000) / 10 + '%';
+        img.style.width = Math.round(b.ratio * 1000) / 10 + '%';
         el.append(img);
         split = null;
       } else if (b.kind === 'table') {
@@ -850,10 +723,7 @@
       } else {
         el = h('div', { class: st.cls });
         if (b.kind === 'empty') { el.classList.add('pt-empty-para'); el.innerHTML = '&#8203;'; split = null; }
-        else if (b.comp === 'ctitle') {
-          el.innerHTML = '<span class="pt-clabel">' + esc(b.label || '') + '</span>' + (b.html ? ' <span class="pt-ctext">' + b.html + '</span>' : '');
-          split = null;
-        } else el.innerHTML = b.html;
+        else el.innerHTML = b.html;
         if (b.key === 'code') el.classList.add('pt-code');
         if (b.list) {
           el.classList.add('pt-li');
@@ -863,25 +733,15 @@
           el.prepend(h('span', { class: 'pt-marker', text: b.list.marker }));
         }
       }
-      if (b.comp) el.classList.add('pt-comp-' + b.comp);
-      if (!st.mapped) el.classList.add('pt-um');
-      if (b.container) {
-        el.classList.add('pt-c', 'pt-c-' + b.container);
-        if (b.cfirst) el.classList.add('pt-cfirst');
-        if (b.clast) el.classList.add('pt-clast');
-      }
-      if (b.boxed) {
-        el.classList.add('pt-boxed');
-        if (b.boxStart) el.classList.add('pt-box-start');
-        if (b.boxEnd) el.classList.add('pt-box-end');
-      }
+      // 흰 글자인데 바탕이 없는 스타일 = IDML에서는 개체 위에 얹힌 글자 → 읽을 수 있게만 표시
+      if (isLight(d.color) && !d.shading) el.classList.add('pt-onobj');
       el.dataset.bi = String(bi);
       el.dataset.sid = d.id || ('key:' + key);
-      el.dataset.key = b.kind === 'section' ? 'h2' : key;
-      const headingLike = HEADING_KEYS.has(b.key) || b.kind === 'section' || b.comp === 'ctitle' || b.comp === 'summary-title' || b.comp === 'practice';
-      // 제목류는 IDML에 '다음과 함께 유지'가 없어도 다음 문단과 붙인다 (조판자가 손으로 하던 일)
-      if (d.keepWithNext > 0 || headingLike) el.dataset.kwn = '1';
-      const vt = el.dataset.vtTitle || b.text;
+      el.dataset.key = key;
+      // IDML '다음과 함께 유지'를 따른다. 옵션을 켜면 제목류는 IDML 값이 없어도 붙인다.
+      const headingLike = HEADING_KEYS.has(key) || /Title$|Num$/.test(key) || key === 'practice';
+      if (d.keepWithNext > 0 || (S.opts.keepHeadings && headingLike)) el.dataset.kwn = '1';
+      const vt = b.text;
       if (d.id && vs.has(d.id) && vt) el.dataset.vt = vt.slice(0, 200);
       items.push({ kind: b.kind, el, split, start: d.startParagraph, keepAll: d.keepAll });
     });
@@ -891,23 +751,25 @@
 
   // 블록의 역할 → 매핑 키 (박스 안 위치, 목록 끝 등)
   function roleKey(b, next) {
-    if (b.kind === 'section') return 'h2';
-    if (b.kind === 'warmup') return 'box';
     if (b.kind === 'image') return 'image';
-    if (b.kind === 'table') return 'table';
-    if (b.comp === 'note') return 'note';
-    if (b.comp === 'practice') return 'practice';
-    if (b.comp === 'summary-title') return 'summaryTitle';
+    if (b.kind === 'table') return b.role === 'toc' ? 'toc' : 'table';
     if (b.container === 'summary') return 'summary';
-    if (b.container === 'coach') return b.comp === 'ctitle' ? 'coachTitle' : b.clast ? 'coachLast' : 'coach';
+    if (b.role && !b.container) return b.role;
+    if (b.container === 'coach') return b.role === 'coachTitle' ? 'coachTitle' : b.clast ? 'coachLast' : 'coach';
     if (b.container === 'prompt') return b.clast ? 'promptLast' : 'prompt';
     if (b.container === 'ai') return b.clast ? 'aiLast' : 'ai';
-    if (b.container && b.key === 'normal') return 'box';
+    if (b.container) return b.role || 'box';
     if (b.list && (b.key === 'li' || b.key === 'ol')) {
       const cont = next && next.list && next.key === b.key && next.container === b.container;
       return cont ? b.key : b.key + 'Last';
     }
+    if (b.key === 'box') return 'box';
     return b.key;
+  }
+
+  function isLight(c) {
+    const m = String(c || '').match(/\d+/g);
+    return !!m && m.length >= 3 && m.slice(0, 3).every(v => +v > 235);
   }
 
   // 못 불러온 그림은 같은 비율의 자리표시로 바꿔 쪽 나눔이 어긋나지 않게 한다
@@ -1173,8 +1035,12 @@
     setStatus('조판 중…', true);
     clearError();
     try {
+      const blocks = S.opts.markup ? PTMarkup.apply(S.doc.blocks) : S.doc.blocks;
+      S.blocks = blocks;
+      learnMapping(blocks);
+      combineMapping();
       prepareStyles();
-      const items = buildItems();
+      const items = buildItems(blocks);
       await preloadImages(items);
       if (run !== S.run) return;
       await document.fonts.ready;
@@ -1296,7 +1162,9 @@
     d.textContent = '';
 
     // 1) 스타일 매핑
-    d.append(h('h4', null, '스타일 매핑 — Docs 단락 스타일 → 내지 단락 스타일'));
+    d.append(h('h4', null, '스타일 매핑 — 원고 역할 → 내지 단락 스타일'));
+    d.append(h('div', { style: 'font-size:11px;color:#80868b;margin:-2px 0 6px' },
+      '학습: 원고 문단을 IDML 본문에 대 보고 실제로 쓰인 스타일 · 이름: 스타일 이름 일반 규칙 · 직접: 내가 고른 것'));
     const counts = Object.assign({}, S.usedKeys || {});
     if (!S.usedKeys && S.doc) for (const b of S.doc.blocks) if (b.key && b.kind !== 'empty') counts[b.key] = (counts[b.key] || 0) + 1;
     const keys = KEY_ORDER.filter(k => counts[k] || S.mapping[k]);
@@ -1306,12 +1174,17 @@
     for (const key of showKeys) {
       const sel = h('select', {
         onchange: async e => {
-          if (e.target.value) S.mapping[key] = e.target.value; else delete S.mapping[key];
-          await store.set({ [K.map(S.tplId)]: S.mapping });
+          S.overrides = S.overrides || {};
+          if (e.target.value) S.overrides[key] = e.target.value; else delete S.overrides[key];
+          await store.set({ [K.ovr(S.tplId)]: S.overrides });
+          combineMapping();
+          renderDrawer();
           relayout();
         }
       });
-      sel.append(h('option', { value: '' }, '자동 (본문 기반)'));
+      const auto = Object.assign({}, S.nameGuess, S.learned)[key];
+      const autoSt = auto && S.styleById.get(auto);
+      sel.append(h('option', { value: '' }, '자동: ' + (autoSt ? autoSt.name : '본문 기반 기본값')));
       const groups = new Map();
       for (const s of styles) {
         const gname = s.group || '';
@@ -1323,21 +1196,26 @@
         for (const s of list) parent.append(h('option', { value: s.id }, s.name + '  ' + r1(s.size) + '/' + r1(s.leading)));
         if (gname) sel.append(parent);
       }
-      sel.value = S.mapping[key] && S.styleById.has(S.mapping[key]) ? S.mapping[key] : '';
+      sel.value = S.overrides && S.overrides[key] && S.styleById.has(S.overrides[key]) ? S.overrides[key] : '';
+      const src = sourceOf(key);
+      const stat = S.learnStats && S.learnStats[key];
+      const badge = src ? h('span', { class: 'pt-count', title: stat ? '원고 문단 ' + stat.total + '개 중 ' + stat.hit + '개가 IDML에서 이 스타일' : '' },
+        src + (src === '학습' && stat ? ' ' + stat.hit + '/' + stat.total : '')) : null;
       table.append(h('tr', null,
-        h('td', null, KEY_LABEL[key], counts[key] ? h('span', { class: 'pt-count' }, String(counts[key])) : null),
-        h('td', null, sel)));
+        h('td', null, KEY_LABEL[key] || key, counts[key] ? h('span', { class: 'pt-count' }, String(counts[key]) + '개') : null),
+        h('td', null, h('div', { style: 'display:flex;gap:6px;align-items:center' }, sel, badge))));
     }
     d.append(table);
     d.append(h('div', { style: 'margin-top:6px' },
       h('button', {
         class: 'pt-btn', onclick: async () => {
-          S.mapping = PTDefaults.guessMapping(tpl);
-          await store.set({ [K.map(S.tplId)]: S.mapping });
+          S.overrides = {};
+          await store.remove(K.ovr(S.tplId));
+          combineMapping();
           renderDrawer();
           relayout();
         }
-      }, '이름으로 자동 매핑 다시 하기')));
+      }, '직접 지정 모두 지우기')));
 
     // 2) 옵션
     d.append(h('h4', null, '조판 옵션'));
@@ -1354,10 +1232,10 @@
       opt('기준선 격자 표시', check('grid')),
       opt('타이핑 멈추면 자동 갱신', check('autoRefresh')),
       opt('문서를 왼쪽으로 밀기', check('push')),
-      opt('집필 마크업을 디자인으로', check('markup')),
+      opt('집필 마크업 해석', check('markup')),
       opt('커서 따라가기', check('syncCursor')),
       opt('스크롤 동기화', check('syncScroll')),
-      h('label', null, '강조색 ', accentInput())));
+      opt('제목을 다음 문단과 붙이기 (IDML에 없어도)', check('keepHeadings'))));
 
     // 3) 템플릿 정보
     d.append(h('h4', null, '내지 정보'));
@@ -1394,14 +1272,6 @@
     if (!tpl.builtin) {
       d.append(h('div', { style: 'margin-top:8px' }, h('button', { class: 'pt-btn', onclick: () => { if (confirm('이 템플릿을 삭제할까요?')) deleteTemplate(S.tplId); } }, '이 템플릿 삭제')));
     }
-  }
-
-  function accentInput() {
-    const toHex = c => { const m = String(c).match(/\d+/g); return m && m.length >= 3 ? '#' + m.slice(0, 3).map(v => (+v).toString(16).padStart(2, '0')).join('') : '#e8692e'; };
-    const inp = h('input', { type: 'color', value: toHex(S.accent || pickAccent()), title: '강조색 (비우면 내지 제목 색)' });
-    inp.addEventListener('change', e => { S.opts.accent = e.target.value; saveOpts(); relayout(); });
-    const reset = h('button', { class: 'pt-btn', style: 'height:22px;padding:0 6px', onclick: () => { S.opts.accent = ''; saveOpts(); relayout(); renderDrawer(); } }, '자동');
-    return h('span', { style: 'display:inline-flex;gap:4px;align-items:center' }, inp, reset);
   }
 
   function afterOpt(k) {

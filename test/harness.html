@@ -92,7 +92,7 @@
         out.blocks = S.doc.blocks.map(b => b.kind + ':' + b.key).join(' ');
         out.folios = S.pages.slice(0, 30).map(p => p.number + ' ' + p.side + ' [' + Array.from(p.el.querySelectorAll('.pt-mframe')).map(f => f.textContent.trim()).join(' / ') + ']');
         out.fonts = S.fonts;
-        out.sections = S.pages.flatMap(p => Array.from(p.el.querySelectorAll('.pt-section .pt-sec-num, .pt-comp-practice')).map(e => p.number + ':' + e.textContent.slice(0, 24)));
+        out.sections = S.pages.flatMap(p => Array.from(p.el.querySelectorAll('[data-key="sectionNum"], [data-key="practice"]')).filter(e => !e.classList.contains('pt-cont')).map(e => p.number + ':' + e.textContent.slice(0, 24)));
         out.usedKeys = S.usedKeys;
       }
       if (params.get('drawer') === '0' && shadowRoot().querySelector('.pt-drawer.pt-show')) shadowRoot().querySelector('.pt-btn[title^="스타일 매핑"]').click();
