@@ -70,7 +70,7 @@
       out.builtinMs = Math.round(performance.now());
       if (params.get('tpl') !== 'builtin') {
         if (params.get('start')) PTApp.state.opts.startPage = parseInt(params.get('start'), 10);
-        const buf = await (await fetch('fixtures/' + (params.get('idml') || 'sample.idml'))).arrayBuffer();
+        const buf = params.get('tplJson') ? null : await (await fetch('fixtures/' + (params.get('idml') || 'sample.idml'))).arrayBuffer();
         if (params.get('fonts')) {
           const listing = await (await fetch('fixtures/private/fonts/')).text();
           const names = Array.from(listing.matchAll(/href="([^"]+\.(?:otf|ttf|OTF|TTF))"/g)).map(m => m[1]);
@@ -81,7 +81,14 @@
           await waitIdle();
         }
         const t1 = performance.now();
-        await PTApp.importFile(new File([buf], 'sample.idml'));
+        if (params.get('tplJson')) {
+          // 확장 저장소에서 꺼낸 템플릿 JSON(chrome.storage.local의 pt:tpl:*)을 그대로 쓴다
+          const tj = await (await fetch('fixtures/' + params.get('tplJson'))).json();
+          mem['pt:tpl:' + tj.id] = tj;
+          mem['pt:templates'] = { [tj.id]: { name: tj.name, createdAt: 1 } };
+          await PTApp._loadTemplate(tj.id);
+          await PTApp.refresh(true);
+        } else await PTApp.importFile(new File([buf], 'sample.idml'));
         await waitIdle();
         out.idmlLayoutMs = Math.round(performance.now() - t1);
         const S = PTApp.state;

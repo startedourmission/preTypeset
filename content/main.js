@@ -294,11 +294,16 @@
     const on = S.open && S.opts.push;
     if (!pushStyle) {
       pushStyle = h('style', { id: 'pretypeset-push' });
-      pushStyle.textContent = 'html.pt-push body{width:calc(100% - var(--pt-w,0px))!important;min-width:0!important}';
+      pushStyle.textContent = 'html.pt-push body{width:calc(100% - var(--pt-w,0px))!important;min-width:0!important}' +
+        // 오른쪽 끝에 붙는 Docs 사이드 아이콘 줄(캘린더·Keep 등)도 패널 왼쪽으로
+        'html.pt-push .docs-companion-app-switcher-container{right:var(--pt-w,0px)!important;left:auto!important}';
       document.head.append(pushStyle);
     }
     document.documentElement.style.setProperty('--pt-w', S.opts.width + 'px');
     document.documentElement.classList.toggle('pt-push', on);
+    // Docs는 창 폭으로 편집기 폭을 정하므로, 메인 월드 브리지가 이 값만큼 줄인 폭을 알려 준다 (page-bridge.js)
+    if (on) document.documentElement.setAttribute('data-pt-push', String(S.opts.width));
+    else document.documentElement.removeAttribute('data-pt-push');
     if (final) window.dispatchEvent(new Event('resize'));
   }
 
@@ -641,11 +646,31 @@
     const samples = S.tpl && S.tpl.samples;
     if (!samples) return;
     const tally = {};
+    // [기본 단락]은 손으로 놓은 글 상자(라벨·탭 등)에 붙는 기본값이다. 같은 글이 이름 있는 스타일에도 있으면 그쪽만 본다.
+    const basic = new Set(S.tpl.styles.map((st, si) => /NormalParagraphStyle$|^\[?(기본 단락|Basic Paragraph)\]?$/i.test(st.id.replace(/^ParagraphStyle\//, '')) ? si : -1).filter(si => si >= 0));
+    // 같은 글이 없으면 숫자만 다른 글(예: 이 책의 '03장' ↔ IDML의 '01장'·'02장')을 모아 본다
+    const shapeOf = k => k.replace(/\d/g, '0');
+    let shaped = null;
+    const byShape = k => {
+      if (!shaped) {
+        shaped = new Map();
+        for (const [sk, cand] of Object.entries(samples)) {
+          if (!/\d/.test(sk) || !Array.isArray(cand)) continue;
+          const m = shaped.get(shapeOf(sk)) || new Map();
+          for (const [si, c] of cand) m.set(si, (m.get(si) || 0) + c);
+          shaped.set(shapeOf(sk), m);
+        }
+      }
+      const m = shaped.get(shapeOf(k));
+      return m ? Array.from(m) : null;
+    };
     // 같은 텍스트가 여러 스타일에 있으면 횟수 비율만큼 나눠서 표를 준다
     const add = (role, text) => {
       const k = PTIdml.sampleKey(text);
-      const cand = k && samples[k];
+      let cand = k && samples[k];
+      if ((!Array.isArray(cand) || !cand.length) && k && /\d/.test(k)) cand = byShape(k);
       if (!Array.isArray(cand) || !cand.length) return;
+      if (cand.some(([si]) => !basic.has(si))) cand = cand.filter(([si]) => !basic.has(si));
       const sum = cand.reduce((a, c) => a + c[1], 0);
       const t = tally[role] || (tally[role] = { total: 0, by: {} });
       t.total++;
@@ -673,6 +698,52 @@
         S.learned[role] = st.id;
         S.learnStats[role] = { hit: Math.round(n * 10) / 10, total: t.total };
       }
+    }
+    learnFromTemplates(blocks);
+  }
+
+  // 원고 글이 IDML에 없어 배우지 못한 제목(예: 이 책의 장·절 제목)은 반복 틀의 구조에서 배운다.
+  // 번호 블록이 틀을 열었는데 바로 다음 역할 블록의 스타일이 그 틀에 자리가 없으면,
+  // 틀에서 아직 비어 있는 원고 자리 중 글자가 가장 큰 자리(제목 자리)의 스타일로 본다.
+  function learnFromTemplates(blocks) {
+    const T = S.tpl.templates || [];
+    if (!T.length || !S.styleById) return;
+    const fixed = k => (S.overrides || {})[k] || S.learned[k];
+    const cur = k => fixed(k) || (S.nameGuess || {})[k];
+    const byKey = new Map();
+    for (const t of T) for (const k of t.keys) { if (!byKey.has(k)) byKey.set(k, []); byKey.get(k).push(t); }
+    const sizeOf = sid => (S.styleById.get(sid) || {}).size || 0;
+    const tally = {};
+    blocks.forEach((b, i) => {
+      const nb = blocks[i + 1];
+      if (b.kind !== 'p' || !nb || nb.kind !== 'p' || !nb.role) return;
+      if (!HEADING_KEYS.has(roleKey(nb, blocks[i + 2]))) return;
+      const sid = cur(roleKey(b, nb));
+      const cands = sid && byKey.get(sid);
+      if (!cands) return;
+      const nrole = roleKey(nb, blocks[i + 2]);
+      if (fixed(nrole)) return;
+      const nsid = cur(nrole);
+      for (const t of cands) {
+        const frames = [].concat(...t.pages.map(pg => pg.frames)).filter(f => !f.constant && !f.hasTable);
+        if (!frames.some(f => (f.styles || []).includes(sid))) continue;
+        if (nsid && frames.some(f => (f.styles || []).includes(nsid))) continue;
+        let best = null, size = 0;
+        for (const f of frames) {
+          if ((f.styles || []).includes(sid)) continue;
+          for (const fs of f.styles || []) if (sizeOf(fs) > size) { size = sizeOf(fs); best = fs; }
+        }
+        if (!best) continue;
+        const v = tally[nrole] || (tally[nrole] = { total: 0, by: {} });
+        v.total += t.count || 1;
+        v.by[best] = (v.by[best] || 0) + (t.count || 1);
+      }
+    });
+    for (const [role, v] of Object.entries(tally)) {
+      const [best, n] = Object.entries(v.by).sort((a, b) => b[1] - a[1])[0];
+      if (n / v.total < 0.5) continue;
+      S.learned[role] = best;
+      S.learnStats[role] = { tpl: true };
     }
   }
 
@@ -910,8 +981,9 @@
       break;
     }
     if (!n || !frames.some(x => x.f && x.got.length)) return null;
-    // 채우지 못한 자리가 많은 틀은 덜 맞는 틀
+    // 채우지 못한 자리가 많은 틀, 자리를 못 찾고 흐름으로 밀려난 역할 블록(예: 제목)이 있는 틀은 덜 맞는 틀
     n -= 0.5 * frames.filter(x => x.f && !x.f.constant && !x.got.length).length;
+    n -= 0.5 * pending;
     return { n, end: Math.max(end, i + 1), frames: frames.filter(x => x.f) };
   }
 
@@ -924,7 +996,7 @@
         const pg = t.pages[k];
         const dx = sideShift(pg.side, page.side);
         page.master = pg.master;
-        page.overrides = new Set(pg.overrides || []);
+        page.overrides = sideOverrides(pg, page.side, dx);
         page.blank = false;
         const box = h('div', { class: 'pt-tpl' });
         const bgs = pg.frames.filter(f => !f.constant && f.bg).map(f => Object.assign({ type: 'shape' }, f.bg));
@@ -989,6 +1061,24 @@
       if (d && big > d.leading) it.el.style.lineHeight = (big * 1.2) + 'pt';
       return;
     }
+  }
+
+  // 틀 쪽에서 재정의(문서 페이지로 꺼내 고친) 마스터 요소. 틀을 반대쪽 페이지에 놓으면
+  // 그쪽 마스터에서 같은 요소(모양·크기·글이 같고 판면 차이만큼 옮긴 것)를 찾아 뺀다.
+  function sideOverrides(pg, side, dx) {
+    const ids = new Set(pg.overrides || []);
+    if (side === pg.side) return ids;
+    const m = (S.tpl.masters || {})[pg.master];
+    if (!m) return ids;
+    const text = it => (it.paragraphs || []).map(p => p.runs.map(r => r.v || r.t).join('')).join('\n');
+    const near = (a, b) => Math.abs(a - b) < 0.6;
+    const other = (m[side] || []).slice();
+    for (const it of m[pg.side] || []) {
+      if (!ids.has(it.id)) continue;
+      const k = other.findIndex(o => o.type === it.type && near(o.w, it.w) && near(o.h, it.h) && near(o.y, it.y) && near(o.x, it.x + dx) && text(o) === text(it));
+      if (k >= 0) { ids.add(other[k].id); other.splice(k, 1); }
+    }
+    return ids;
   }
 
   // 틀을 반대쪽 페이지에 놓을 때: 판면 왼쪽 여백 차이만큼 옮긴다
@@ -1492,8 +1582,8 @@
       sel.value = S.overrides && S.overrides[key] && S.styleById.has(S.overrides[key]) ? S.overrides[key] : '';
       const src = sourceOf(key);
       const stat = S.learnStats && S.learnStats[key];
-      const badge = src ? h('span', { class: 'pt-count', title: stat ? '원고 문단 ' + stat.total + '개 중 ' + stat.hit + '개가 IDML에서 이 스타일' : '' },
-        src + (src === '학습' && stat ? ' ' + stat.hit + '/' + stat.total : '')) : null;
+      const badge = src ? h('span', { class: 'pt-count', title: stat && stat.tpl ? 'IDML 반복 틀에서 번호 다음 자리의 스타일' : stat ? '원고 문단 ' + stat.total + '개 중 ' + stat.hit + '개가 IDML에서 이 스타일' : '' },
+        src + (src === '학습' && stat && stat.tpl ? ' (틀)' : src === '학습' && stat ? ' ' + stat.hit + '/' + stat.total : '')) : null;
       table.append(h('tr', null,
         h('td', null, KEY_LABEL[key] || key, counts[key] ? h('span', { class: 'pt-count' }, String(counts[key]) + '개') : null),
         h('td', null, h('div', { style: 'display:flex;gap:6px;align-items:center' }, sel, badge))));
