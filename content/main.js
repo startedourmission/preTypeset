@@ -34,7 +34,7 @@
     width: Math.round(Math.min(720, Math.max(420, window.innerWidth * 0.42))),
     spread: true, zoom: 1, wordBreak: 'keep-all', skipEmpty: true, grid: false,
     startPage: 1, autoRefresh: true, push: true,
-    markup: true, keepHeadings: false, syncScroll: true, syncCursor: true
+    markup: true, keepHeadings: false, syncScroll: true, syncCursor: true, useTemplates: true
   };
 
   // ---------- 저장소 ----------
@@ -144,7 +144,7 @@
 .pt-page.pt-wb-keep-all{word-break:keep-all}
 .pt-page.pt-wb-normal{word-break:normal}
 .pt-frame{position:absolute;display:flex}
-.pt-col{flex:none;height:100%;overflow:hidden;display:flow-root;position:relative}
+.pt-col{flex:none;height:100%;overflow:clip;overflow-clip-margin:28pt;display:flow-root;position:relative}
 .pt-col>*{margin:0;box-sizing:border-box}
 .pt-col>.pt-first{padding-top:0!important}
 .pt-cont{text-indent:0!important;padding-top:0!important}
@@ -162,11 +162,22 @@
 .pt-empty-para{min-height:1lh}
 .pt-overset{outline:1.5pt solid #d93025;outline-offset:-1.5pt}
 .pt-shapes{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.pt-master,.pt-tpl{position:absolute;inset:0;pointer-events:none}
+.pt-tpl>.pt-tframe{pointer-events:auto}
 .pt-mframe{position:absolute;display:flex;flex-direction:column;overflow:visible}
 .pt-mframe>div{text-indent:0;padding-top:0;padding-bottom:0;white-space:pre-wrap}
 .pt-grid{position:absolute;pointer-events:none}
 
 /* 흰 글자인데 바탕(IDML 개체)을 아직 못 그리는 자리: 읽을 수 있게 회색 바탕 */
+.pt-tframe{position:absolute;display:flex;flex-direction:column;overflow:hidden}
+.pt-tframe>*{margin:0;box-sizing:border-box;flex:none}
+.pt-tframe>:first-child{padding-top:0!important}
+.pt-tframe>.pt-table{width:100%}
+.pt-idml-bullet{display:inline-block;text-indent:0}
+.pt-deco{display:inline-block;position:relative;text-indent:0}
+.pt-deco>.pt-shapes{position:absolute;left:0;top:0}
+.pt-deco>.pt-mframe>div{white-space:pre}
+.pt-decopara{white-space:normal}
 .pt-onobj{background-color:#8a8f98!important;outline:1px dashed #5f6368;outline-offset:-1px}
 /* 커서 위치 표시 */
 .pt-cursor{box-shadow:-5pt 0 0 -2pt rgb(26 115 232)}
@@ -508,16 +519,25 @@
 
     let css = '';
     tpl.styles.forEach((s, i) => { css += PTStyle.rulesFor('.ps-' + i, s); });
+    // 음영·테두리 설정이 같은 스타일끼리 이어지면 상자를 합친다
+    S.bxById = new Map();
+    const bxSig = new Map();
+    for (const s of tpl.styles) {
+      if (!s.shade && !s.border) continue;
+      const k = JSON.stringify([s.shade, s.border]);
+      if (!bxSig.has(k)) bxSig.set(k, 'bx-' + bxSig.size);
+      S.bxById.set(s.id, bxSig.get(k));
+    }
+    for (const c of bxSig.values()) css += PTStyle.mergeRules(c);
     for (const k of Object.keys(S.fallback)) css += PTStyle.rulesFor('.pk-' + k, S.fallback[k]);
     ui.dyn.textContent = css;
 
     // 실제로 쓰이는 스타일(매핑된 것 + 마스터 텍스트)의 글꼴만 확인
     const used = new Set(KEY_ORDER.map(k => resolveKey(k).desc));
-    for (const side of ['left', 'right']) {
-      for (const it of (tpl.master && tpl.master[side]) || []) {
-        for (const p of it.paragraphs || []) if (S.styleById.has(p.styleId)) used.add(S.styleById.get(p.styleId));
-      }
-    }
+    const idmlTexts = idmlTextItems();
+    for (const it of idmlTexts) for (const p of it.paragraphs || []) if (S.styleById.has(p.styleId)) used.add(S.styleById.get(p.styleId));
+    for (const t of tpl.templates || []) for (const pg of t.pages) for (const f of pg.frames) for (const sid of f.styles || []) if (S.styleById.has(sid)) used.add(S.styleById.get(sid));
+    for (const sid of Object.values(tpl.precede || {})) if (S.styleById.has(sid)) used.add(S.styleById.get(sid));
     const fams = new Set();
     const wanted = new Set();
     const addFont = (fam, style) => {
@@ -527,17 +547,26 @@
       if (style && !/^regular$/i.test(style)) wanted.add(fam + ' ' + style);
     };
     for (const s of used) if (s && s.font) addFont(s.font.family, s.font.style);
-    for (const side of ['left', 'right']) {
-      for (const it of (tpl.master && tpl.master[side]) || []) {
-        for (const p of it.paragraphs || []) {
-          if (p.over && p.over.family) addFont(p.over.family, p.over.style);
-          for (const r of p.runs) if (r.st && r.st.family) addFont(r.st.family, r.st.style);
-        }
+    for (const it of idmlTexts) {
+      for (const p of it.paragraphs || []) {
+        if (p.over && p.over.family) addFont(p.over.family, p.over.style);
+        for (const r of p.runs) if (r.st && r.st.family) addFont(r.st.family, r.st.style);
       }
     }
     S.wantedFonts = Array.from(wanted);
     S.fonts = Array.from(fams).map(f => ({ family: f, ok: fontOk(f) }));
     S.missingFonts = S.fonts.filter(f => !f.ok).map(f => f.family);
+  }
+
+  // IDML에서 그대로 그리는 글 상자 전부 (마스터, 틀의 고정 문구, 장식)
+  function idmlTextItems() {
+    const tpl = S.tpl, out = [];
+    const add = list => { for (const it of list || []) if (it.type === 'text') out.push(it); };
+    if (tpl.master) { add(tpl.master.left); add(tpl.master.right); }
+    for (const m of Object.values(tpl.masters || {})) { add(m.left); add(m.right); }
+    for (const t of tpl.templates || []) for (const pg of t.pages) add(pg.frames.map(f => Object.assign({ type: 'text' }, f)));
+    for (const list of Object.values(tpl.decos || {})) for (const d of list) add(d.items);
+    return out;
   }
 
   function fontOk(f) {
@@ -703,6 +732,16 @@
     const items = [];
     const vs = varStyleSet();
     const used = {};
+    const tpl = S.tpl;
+    const precede = tpl.precede || {};
+    const mark = (el, d, key, bi) => {
+      if (isLight(d.color) && !d.shading) el.classList.add('pt-onobj');
+      if (bi != null) el.dataset.bi = String(bi);
+      el.dataset.sid = d.id || ('key:' + key);
+      el.dataset.key = key;
+      const bx = d.id && S.bxById && S.bxById.get(d.id);
+      if (bx) el.classList.add(bx);
+    };
     blocks.forEach((b, bi) => {
       if (b.kind === 'break') { items.push({ kind: 'break' }); return; }
       if (b.kind === 'empty' && S.opts.skipEmpty && !b.boxed && !b.container) return;
@@ -710,6 +749,31 @@
       used[key] = (used[key] || 0) + 1;
       const st = resolveKey(key);
       const d = st.desc;
+
+      // IDML에서 이 스타일 앞에는 늘 장식만 있는 문단이 선다 (예: 프롬프트 머리)
+      let lead = d.id && precede[d.id];
+      // 박스(컨테이너)의 첫 문단이면, 박스 안 어느 문단 스타일에든 머리 문단이 있으면 그것을 쓴다
+      const pb = blocks[bi - 1];
+      if (!lead && b.container && (!pb || pb.container !== b.container || pb.clast)) {
+        for (let k = bi; k < blocks.length && blocks[k].container === b.container; k++) {
+          const kd = resolveKey(roleKey(blocks[k], blocks[k + 1])).desc;
+          if (kd.id && precede[kd.id]) { lead = precede[kd.id]; break; }
+          if (blocks[k].clast) break;
+        }
+      }
+      const prev = items[items.length - 1];
+      if (lead && S.styleById.has(lead) && !(prev && (prev.sid === lead || prev.sid === d.id))) {
+        const ld = S.styleById.get(lead);
+        const el = h('div', { class: S.clsById.get(lead) + ' pt-decopara' });
+        const dec = pickDeco(lead, {});
+        if (dec) el.append(decoEl(dec, null));
+        el.append(document.createTextNode('​'));
+        mark(el, ld, key, null);
+        el.classList.remove('pt-onobj');
+        el.dataset.kwn = '1';
+        items.push({ kind: 'p', el, split: null, start: ld.startParagraph, sid: lead, virtual: true });
+      }
+
       let el, split = 'text';
       if (b.kind === 'image') {
         el = h('div', { class: 'pt-img ' + st.cls });
@@ -725,7 +789,16 @@
         if (b.kind === 'empty') { el.classList.add('pt-empty-para'); el.innerHTML = '&#8203;'; split = null; }
         else el.innerHTML = b.html;
         if (b.key === 'code') el.classList.add('pt-code');
-        if (b.list) {
+        const dec = b.kind === 'p' && d.id ? pickDeco(d.id, b) : null;
+        if (dec) el.prepend(decoEl(dec, b.tag));
+        const bul = b.list && !dec && d.bullet;
+        if (bul) {
+          // IDML 스타일의 글머리 기호(문자·색)와 내어쓰기를 그대로 쓴다
+          const mk = h('span', { class: 'pt-marker pt-idml-bullet', text: d.bullet.char });
+          mk.style.width = Math.max(0, -d.firstIndent) + 'pt';
+          if (d.bullet.color) mk.style.color = d.bullet.color;
+          el.prepend(mk);
+        } else if (b.list && !dec) {
           el.classList.add('pt-li');
           const step = 1.2 * d.size;
           const baseIndent = d.leftIndent > 0 ? d.leftIndent : step;
@@ -734,19 +807,207 @@
         }
       }
       // 흰 글자인데 바탕이 없는 스타일 = IDML에서는 개체 위에 얹힌 글자 → 읽을 수 있게만 표시
-      if (isLight(d.color) && !d.shading) el.classList.add('pt-onobj');
-      el.dataset.bi = String(bi);
-      el.dataset.sid = d.id || ('key:' + key);
-      el.dataset.key = key;
+      mark(el, d, key, bi);
       // IDML '다음과 함께 유지'를 따른다. 옵션을 켜면 제목류는 IDML 값이 없어도 붙인다.
       const headingLike = HEADING_KEYS.has(key) || /Title$|Num$/.test(key) || key === 'practice';
       if (d.keepWithNext > 0 || (S.opts.keepHeadings && headingLike)) el.dataset.kwn = '1';
       const vt = b.text;
       if (d.id && vs.has(d.id) && vt) el.dataset.vt = vt.slice(0, 200);
-      items.push({ kind: b.kind, el, split, start: d.startParagraph, keepAll: d.keepAll });
+      items.push({ kind: b.kind, el, split, start: d.startParagraph, keepAll: d.keepAll, sid: d.id || '', role: b.role || '', text: b.text || '', bi });
     });
     S.usedKeys = used;
-    return items;
+    return applyTemplates(items);
+  }
+
+  // ---------- IDML 장식 ----------
+  // 스타일에 되풀이해 붙던 인라인 개체 중 이 문단에 맞는 것. 원고 표식(tag)이 있으면 같은 글의 변형을 고른다.
+  function pickDeco(styleId, b) {
+    const list = (S.tpl.decos || {})[styleId];
+    if (!list || !list.length) return null;
+    const tag = b && b.tag ? String(b.tag).trim() : '';
+    if (tag) {
+      const nt = tag.replace(/\d+/g, '#');
+      const hit = list.find(x => x.norm.split('|').includes(nt));
+      if (hit) return hit;
+      // 같은 글의 변형이 없으면 가장 흔한 변형의 첫 글 자리에 표식을 넣는다
+      const base = list[0];
+      const texts = base.items.filter(i => i.type === 'text');
+      const k = texts.findIndex(t => (t.paragraphs || []).some(p => p.runs.length));
+      return k >= 0 ? Object.assign({}, base, { slot: k }) : base;
+    }
+    // 표식이 없는 문단에는 글이 늘 같은 장식만
+    return list.find(x => x.slot < 0) || null;
+  }
+
+  function decoEl(dec, tag) {
+    const span = h('span', { class: 'pt-deco', 'aria-hidden': 'true' });
+    Object.assign(span.style, { width: dec.w + 'pt', height: dec.h + 'pt', verticalAlign: (dec.yOffset || 0) + 'pt' });
+    drawItems(span, dec.items, null, { w: dec.w, h: dec.h, slot: dec.slot, slotText: tag });
+    return span;
+  }
+
+  // ---------- IDML 반복 틀 (장 도비라, 절 시작 쪽 …) ----------
+  const normText = t => String(t || '').replace(/[\s ​﻿]+/g, ' ').trim();
+
+  function applyTemplates(items) {
+    const T = S.tpl.templates || [];
+    if (!T.length || !S.opts.useTemplates) return items;
+    const byKey = new Map();
+    for (const t of T) for (const k of t.keys) { if (!byKey.has(k)) byKey.set(k, []); byKey.get(k).push(t); }
+    const out = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const cands = it.sid && !it.virtual ? byKey.get(it.sid) : null;
+      if (!cands) { out.push(it); continue; }
+      let best = null;
+      for (const t of cands) {
+        const r = absorb(t, items, i);
+        if (r && (!best || r.n > best.n || (r.n === best.n && t.count > best.t.count))) best = Object.assign({ t }, r);
+      }
+      if (!best) { out.push(it); continue; }
+      out.push(fixedItem(best));
+      i = best.end - 1;
+    }
+    return out;
+  }
+
+  // 틀이 받을 수 있는 원고 블록을 앞에서부터 모은다
+  function absorb(t, items, i) {
+    const frames = [];
+    t.pages.forEach((pg, k) => pg.frames.forEach(f => frames.push({ f, k, cap: f.constant ? 0 : Math.max(1, f.maxParas), got: [] })));
+    const constTexts = new Set();
+    t.pages.forEach(pg => {
+      for (const f of pg.frames) if (f.constant) for (const p of f.paragraphs || []) constTexts.add(normText(p.runs.map(r => r.v || '').join('')));
+      const m = (S.tpl.masters || {})[pg.master];
+      for (const it of (m && m[pg.side]) || []) if (it.type === 'text' && !(pg.overrides || []).includes(it.id)) for (const p of it.paragraphs || []) constTexts.add(normText(p.runs.map(r => r.v || '').join('')));
+    });
+    constTexts.delete('');
+    let n = 0, j = i, end = i;
+    let pending = 0; // 자리가 없는 역할 블록: 뒤 블록이 틀에 들어가면 틀의 그림 글자로 보고 뺀다
+    for (; j < items.length; j++) {
+      const it = items[j];
+      if (it.kind === 'break') break;
+      if (it.kind === 'empty') continue;
+      // 첫 블록 다음부터는 집필 마크업이 역할을 붙인 블록만 (일반 본문은 흐름으로)
+      if (j > i && !it.role && it.kind !== 'table') break;
+      const nt = normText(it.text);
+      // 틀에 이미 찍혀 있는 고정 문구와 같은 글 → 틀 것을 쓴다
+      if (it.kind === 'p' && constTexts.has(nt)) { n += 2; end = j + 1; pending = 0; continue; }
+      let slot = null, w = 1;
+      if (it.kind === 'table') slot = frames.find(x => x.f && x.f.hasTable && x.cap > 0);
+      else {
+        // IDML에 같은 글이 있으면 그 글의 스타일이 든 프레임
+        const cand = (S.tpl.samples || {})[PTIdml.sampleKey(it.text)] || [];
+        for (const [si] of cand) {
+          const sid = S.tpl.styles[si] && S.tpl.styles[si].id;
+          slot = frames.find(x => x.f && x.cap > 0 && (x.f.styles || []).includes(sid));
+          if (slot) { w = 2; break; }
+        }
+        if (!slot) slot = frames.find(x => x.f && x.cap > 0 && (x.f.styles || []).includes(it.sid));
+      }
+      if (slot) { slot.got.push(it); slot.cap--; n += w; pending = 0; end = j + 1; continue; }
+      if (j > i && pending < 2 && it.kind === 'p' && nt.length <= 30) { pending++; continue; }
+      break;
+    }
+    if (!n || !frames.some(x => x.f && x.got.length)) return null;
+    // 채우지 못한 자리가 많은 틀은 덜 맞는 틀
+    n -= 0.5 * frames.filter(x => x.f && !x.f.constant && !x.got.length).length;
+    return { n, end: Math.max(end, i + 1), frames: frames.filter(x => x.f) };
+  }
+
+  function fixedItem(best) {
+    const t = best.t;
+    return {
+      kind: 'fixed', count: t.pages.length, keepMaster: true,
+      startOn: t.startSide === 'left' ? 'even' : t.startSide === 'right' ? 'odd' : '',
+      render(page, k) {
+        const pg = t.pages[k];
+        const dx = sideShift(pg.side, page.side);
+        page.master = pg.master;
+        page.overrides = new Set(pg.overrides || []);
+        page.blank = false;
+        const box = h('div', { class: 'pt-tpl' });
+        const bgs = pg.frames.filter(f => !f.constant && f.bg).map(f => Object.assign({ type: 'shape' }, f.bg));
+        drawItems(box, pg.shapes.concat(bgs), page, { w: S.tpl.page.width, h: S.tpl.page.height, dx });
+        drawItems(box, pg.frames.filter(f => f.constant).map(f => Object.assign({ type: 'text' }, f, { x: f.x + dx })), page, { w: S.tpl.page.width, h: S.tpl.page.height });
+        for (const slot of best.frames) {
+          if (slot.k !== k || !slot.got.length) continue;
+          const f = slot.f;
+          const fr = h('div', { class: 'pt-tframe' });
+          const ins = f.inset || [0, 0, 0, 0];
+          Object.assign(fr.style, {
+            left: (f.x + dx) + 'pt', top: f.y + 'pt', width: f.w + 'pt', height: f.h + 'pt',
+            padding: ins[0] + 'pt ' + ins[3] + 'pt ' + ins[2] + 'pt ' + ins[1] + 'pt',
+            justifyContent: f.valign === 'CenterAlign' ? 'center' : f.valign === 'BottomAlign' ? 'flex-end' : 'flex-start'
+          });
+          for (const it of slot.got) { it.el.classList.remove('pt-onobj'); mimicRuns(it, f); fr.append(it.el); }
+          box.append(fr);
+          slot.fr = fr;
+        }
+        page.el.append(box);
+        // 원고 글이 틀 프레임보다 길면 프레임을 늘리고, 본문 흐름 위쪽 프레임이면 흐름도 그만큼 내린다
+        page.tplGrow = 0;
+        for (const slot of best.frames) {
+          if (slot.k !== k || !slot.fr) continue;
+          const fr = slot.fr;
+          if (fr.scrollHeight <= fr.clientHeight + 1) continue;
+          const need = slot.f.h * fr.scrollHeight / Math.max(1, fr.clientHeight);
+          fr.style.height = need + 'pt';
+          if (pg.flow && slot.f.y < pg.flow.y) page.tplGrow = Math.max(page.tplGrow, need - slot.f.h);
+        }
+      },
+      flowRect(page) {
+        const pg = t.pages[t.pages.length - 1];
+        if (!pg.flow) return null;
+        const g = page.tplGrow || 0;
+        return Object.assign({}, pg.flow, { x: pg.flow.x + sideShift(pg.side, page.side), y: pg.flow.y + g, h: Math.max(40, pg.flow.h - g) });
+      }
+    };
+  }
+
+  // 틀 첫 사례의 글이 숫자만 다르고 모양이 같으면(예: '01장'), 글자별 서식(크기·글꼴·색)을 그대로 입힌다
+  function mimicRuns(it, f) {
+    if (it.kind !== 'p' || !f.paragraphs) return;
+    const mine = it.el.textContent;
+    const shape = t => t.replace(/\d/g, '0');
+    for (const p of f.paragraphs) {
+      const runs = p.runs.filter(r => r.t === 'text');
+      if (runs.length < 2 || runs.length !== p.runs.length) continue;
+      const theirs = runs.map(r => r.v).join('');
+      if (shape(theirs) !== shape(mine)) continue;
+      let pos = 0, html = '';
+      for (const r of runs) {
+        const css = runStyle(r.st);
+        const piece = esc(mine.slice(pos, pos + r.v.length));
+        pos += r.v.length;
+        html += css ? '<span style="' + esc(css) + '">' + piece + '</span>' : piece;
+      }
+      it.el.innerHTML = html;
+      // 큰 글자가 섞이면 줄 높이도 그만큼 (InDesign 자동 행간)
+      const big = Math.max(0, ...runs.map(r => (r.st && r.st.size) || 0));
+      const d = S.styleById.get(it.sid);
+      if (d && big > d.leading) it.el.style.lineHeight = (big * 1.2) + 'pt';
+      return;
+    }
+  }
+
+  // 틀을 반대쪽 페이지에 놓을 때: 판면 왼쪽 여백 차이만큼 옮긴다
+  function sideShift(from, to) {
+    const m = S.tpl.margins || {};
+    if (from === to || !m.left || !m.right) return 0;
+    return (m[to] || m.right).left - (m[from] || m.right).left;
+  }
+
+  function setFlow(page, r) {
+    const frame = page.el.querySelector('.pt-frame');
+    if (!frame) return;
+    const n = page.cols.length;
+    const gutter = r.gutter || 12;
+    Object.assign(frame.style, { left: r.x + 'pt', top: r.y + 'pt', width: r.w + 'pt', height: r.h + 'pt' });
+    frame.style.setProperty('--colh', r.h + 'pt');
+    const cw = (r.w - gutter * (n - 1)) / n;
+    for (const c of page.cols) c.style.width = cw + 'pt';
+    page.margins = Object.assign({}, page.margins, { top: r.y, left: r.x, right: S.tpl.page.width - r.x - r.w, bottom: S.tpl.page.height - r.y - r.h });
   }
 
   // 블록의 역할 → 매핑 키 (박스 안 위치, 목록 끝 등)
@@ -854,37 +1115,45 @@
     return '';
   }
 
-  function renderMaster(page) {
-    const tpl = S.tpl;
-    if (page.blank && !S.opts.masterOnBlank) return;
-    const items = tpl.master ? (tpl.master[page.side] || []) : [];
-    const shapes = items.filter(i => i.type === 'shape');
+  // IDML 개체(도형·글 상자)를 host 안에 그린다. 마스터, 틀, 장식이 같이 쓴다.
+  //   o.w/o.h: 도형 좌표계 크기, o.slot/o.slotText: slot번째 글 상자의 글을 바꿔 넣는다
+  function drawItems(host, items, page, o) {
+    // 글 상자의 칠·선도 도형처럼 (글보다 아래에) 그린다
+    const shapes = items.flatMap(i => i.type === 'shape' ? [i] : i.type === 'text' && i.bg ? [Object.assign({ type: 'shape' }, i.bg)] : []);
     if (shapes.length) {
       const NS = 'http://www.w3.org/2000/svg';
       const svg = document.createElementNS(NS, 'svg');
       svg.setAttribute('class', 'pt-shapes');
-      svg.setAttribute('width', tpl.page.width + 'pt');
-      svg.setAttribute('height', tpl.page.height + 'pt');
-      svg.setAttribute('viewBox', '0 0 ' + tpl.page.width + ' ' + tpl.page.height);
+      svg.setAttribute('width', o.w + 'pt');
+      svg.setAttribute('height', o.h + 'pt');
+      svg.setAttribute('viewBox', '0 0 ' + o.w + ' ' + o.h);
       for (const s of shapes) {
         let node;
-        if (s.oval) {
+        if (s.d) {
+          node = document.createElementNS(NS, 'path');
+          node.setAttribute('d', s.d);
+          node.setAttribute('fill-rule', 'evenodd');
+          if (o.dx) node.setAttribute('transform', 'translate(' + o.dx + ' 0)');
+        } else if (s.oval) {
           const xs = s.points.map(p => p[0]), ys = s.points.map(p => p[1]);
           const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
           node = document.createElementNS(NS, 'ellipse');
           node.setAttribute('cx', (x0 + x1) / 2); node.setAttribute('cy', (y0 + y1) / 2);
           node.setAttribute('rx', (x1 - x0) / 2); node.setAttribute('ry', (y1 - y0) / 2);
-        } else {
+        } else if (s.points) {
           node = document.createElementNS(NS, s.closed ? 'polygon' : 'polyline');
           node.setAttribute('points', s.points.map(p => p.join(',')).join(' '));
-        }
-        node.setAttribute('fill', s.closed && s.fill ? s.fill : 'none');
+        } else continue;
+        node.setAttribute('fill', s.fill || 'none');
         if (s.stroke) { node.setAttribute('stroke', s.stroke); node.setAttribute('stroke-width', s.weight); }
         svg.append(node);
       }
-      page.el.prepend(svg);
+      host.prepend(svg);
     }
-    for (const t of items.filter(i => i.type === 'text')) {
+    let ti = -1;
+    for (const t of items) {
+      if (t.type !== 'text') continue;
+      ti++;
       const f = h('div', { class: 'pt-mframe' });
       const ins = t.inset || [0, 0, 0, 0];
       Object.assign(f.style, {
@@ -892,9 +1161,15 @@
         padding: ins[0] + 'pt ' + ins[3] + 'pt ' + ins[2] + 'pt ' + ins[1] + 'pt',
         justifyContent: t.valign === 'CenterAlign' ? 'center' : t.valign === 'BottomAlign' ? 'flex-end' : 'flex-start'
       });
-      for (const p of t.paragraphs) {
+      const slot = o.slot === ti && o.slotText;
+      const paras = t.paragraphs || [];
+      for (let pi = 0; pi < paras.length; pi++) {
+        const p = paras[pi];
+        if (slot && pi > 0) break;
         const cls = S.clsById.get(p.styleId) || 'pk-normal';
         const d = h('div', { class: cls });
+        const bx = S.bxById && S.bxById.get(p.styleId);
+        if (bx) d.classList.add(bx);
         const ov = p.over || {};
         if (ov.justification) {
           const j = PTStyle.justify(ov.justification);
@@ -903,11 +1178,28 @@
         }
         const pcss = runStyle(ov);
         if (pcss) d.style.cssText += ';' + pcss;
-        d.innerHTML = p.runs.map(r => runText(r, page)).join('').replace(/\t/g, '\u2003') || '&#8203;';
+        if (slot) {
+          // 자리 글자는 원래 첫 글 조각의 글자 모양을 따른다
+          const r0 = p.runs.find(r => r.t === 'text') || {};
+          d.innerHTML = runText({ t: 'text', v: o.slotText, st: r0.st }, page);
+        } else {
+          d.innerHTML = p.runs.map(r => runText(r, page)).join('').replace(/\t/g, ' ') || '&#8203;';
+        }
         f.append(d);
       }
-      page.el.append(f);
+      host.append(f);
     }
+  }
+
+  function renderMaster(page) {
+    const tpl = S.tpl;
+    if (page.blank && !S.opts.masterOnBlank) return;
+    const m = page.master && tpl.masters && tpl.masters[page.master] ? tpl.masters[page.master] : tpl.master;
+    let items = m ? (m[page.side] || []) : [];
+    if (page.overrides && page.overrides.size) items = items.filter(it => !page.overrides.has(it.id));
+    const box = h('div', { class: 'pt-master' });
+    drawItems(box, items, page, { w: tpl.page.width, h: tpl.page.height });
+    page.el.prepend(box);
   }
 
   function renderGrid(page) {
@@ -1062,6 +1354,7 @@
         startNumber: Math.max(1, parseInt(S.opts.startPage, 10) || 1),
         isCancelled: () => run !== S.run,
         makePage,
+        setFlow,
         onPageDone(page) {
           computeVars(page);
           renderMaster(page);
@@ -1235,6 +1528,7 @@
       opt('집필 마크업 해석', check('markup')),
       opt('커서 따라가기', check('syncCursor')),
       opt('스크롤 동기화', check('syncScroll')),
+      opt('IDML 반복 틀 쓰기 (장 도비라·절 시작 쪽)', check('useTemplates')),
       opt('제목을 다음 문단과 붙이기 (IDML에 없어도)', check('keepHeadings'))));
 
     // 3) 템플릿 정보
@@ -1247,6 +1541,10 @@
     line('여백(오른쪽 면)', '위 ' + mm(mR.top) + ' · 아래 ' + mm(mR.bottom) + ' · 왼 ' + mm(mR.left) + ' · 오른 ' + mm(mR.right) + 'mm');
     line('단', (mR.columns || 1) + '단' + ((mR.columns || 1) > 1 ? ' · 간격 ' + mm(mR.gutter) + 'mm' : ''));
     if (tpl.master) line('마스터', tpl.master.name + ' (요소 ' + ((tpl.master.left || []).length + (tpl.master.right || []).length) + '개)');
+    if (tpl.version >= 2) {
+      line('반복 틀', (tpl.templates || []).length + '종 (문서 페이지에서 찾음)');
+      line('장식', Object.values(tpl.decos || {}).reduce((a, l) => a + l.length, 0) + '종 (문단 첫머리 개체)');
+    } else line('반복 틀·장식', '예전 방식으로 읽은 내지입니다. IDML을 다시 올리면 읽습니다.');
     line('단락 스타일', styles.length + '개');
     const fontLine = h('div', null, h('span', { class: 'pt-k' }, '글꼴'));
     (S.fonts || []).forEach((f, i) => {

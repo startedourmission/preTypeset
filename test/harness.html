@@ -94,6 +94,11 @@
         out.fonts = S.fonts;
         out.sections = S.pages.flatMap(p => Array.from(p.el.querySelectorAll('[data-key="sectionNum"], [data-key="practice"]')).filter(e => !e.classList.contains('pt-cont')).map(e => p.number + ':' + e.textContent.slice(0, 24)));
         out.usedKeys = S.usedKeys;
+        // 특정 쪽의 틀/장식 내용: probe=쪽번호
+        if (params.get('probe')) {
+          const pg = S.pages.find(p => String(p.number) === params.get('probe'));
+          if (pg) out.probe = Array.from(pg.el.querySelectorAll('.pt-tframe, .pt-tpl>.pt-mframe, .pt-master>.pt-mframe, .pt-deco')).map(e => e.className + ' @' + e.style.left + ',' + e.style.top + ' ' + e.textContent.trim().slice(0, 50));
+        }
       }
       if (params.get('drawer') === '0' && shadowRoot().querySelector('.pt-drawer.pt-show')) shadowRoot().querySelector('.pt-btn[title^="스타일 매핑"]').click();
       if (params.get('grid')) { PTApp.state.opts.grid = true; await PTApp.relayout(); }

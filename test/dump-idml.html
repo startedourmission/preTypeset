@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dump</title>
+<pre id="result"></pre>
+<script src="../lib/zip.js"></script>
+<script src="../lib/idml.js"></script>
+<script>
+// IDML 해석 결과 요약: ?idml=fixtures/private/baba.idml
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const buf = await (await fetch(q.get('idml'))).arrayBuffer();
+  const t0 = performance.now();
+  const tpl = await PTIdml.parseIdml(buf, 'x.idml');
+  const ms = performance.now() - t0;
+  const nm = id => { const s = tpl.styles.find(s => s.id === id); return s ? s.name : id; };
+  const out = {
+    ms: Math.round(ms),
+    size: JSON.stringify(tpl).length,
+    master: tpl.master && tpl.master.name,
+    masters: Object.values(tpl.masters).map(m => m.name + ' L' + m.left.length + ' R' + m.right.length),
+    templates: tpl.templates.map(t => ({
+      id: t.id, count: t.count, startSide: t.startSide, keys: t.keys.map(nm), styles: t.styles.map(nm),
+      pages: t.pages.map(p => ({ side: p.side, master: p.master, ov: p.overrides.length, shapes: p.shapes.length, flow: p.flow && [p.flow.x, p.flow.y, p.flow.w, p.flow.h, p.flow.columns].map(Math.round),
+        frames: p.frames.map(f => (f.constant ? 'C ' : 'V ') + f.styles.map(nm).join('+') + ' max' + f.maxParas + (f.hasTable ? ' T' : '') + ' @' + [f.x, f.y, f.w, f.h].map(Math.round)) }))
+    })),
+    decos: Object.fromEntries(Object.entries(tpl.decos).map(([k, v]) => [nm(k), v.map(d => d.count + ' "' + d.text + '" slot' + d.slot + ' ' + d.w + 'x' + d.h + ' y' + d.yOffset + ' n' + d.items.length)])),
+    precede: Object.fromEntries(Object.entries(tpl.precede).map(([k, v]) => [nm(k), nm(v)])),
+    borders: tpl.styles.filter(s => s.border || s.shade).length
+  };
+  document.getElementById('result').textContent = JSON.stringify(out, null, 1);
+  document.title = 'DONE';
+})().catch(e => { document.getElementById('result').textContent = 'ERR ' + e.stack; document.title = 'DONE'; });
+</script>
