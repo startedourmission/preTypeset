@@ -1,5 +1,5 @@
 // 하네스를 헤드리스 Chrome으로 돌리고 결과 JSON(+스크린샷)을 받는다.
-// node test/run-harness.mjs "<query>" [--shot out.png] [--page N] [--size 1700,1150]
+// node test/run-harness.mjs "<query>" [--shot out.png] [--page N] [--size 1700,1150] [--pdf out.pdf]
 // 미리 프로젝트 루트에서 `python3 -m http.server 8765` 실행
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
@@ -68,6 +68,14 @@ try {
     writeFileSync(file, Buffer.from(r.data, 'base64'));
   };
   if (shot && !shots.length) await capture(shot);
+  // --pdf out.pdf : 'PDF로 저장'과 같은 인쇄 모드로 PDF를 만든다
+  const pdf = opt('--pdf');
+  if (pdf) {
+    await evaluate('PTApp._printMode(true)');
+    const r = await send('Page.printToPDF', { preferCSSPageSize: true, printBackground: true });
+    writeFileSync(pdf, Buffer.from(r.data, 'base64'));
+    await evaluate('PTApp._printMode(false)');
+  }
   for (const n of shots) {
     await evaluate(`(() => { const r = document.getElementById('pretypeset-host').shadowRoot; const w = r.querySelector('.pt-wrap[data-n="${n}"]'); const v = r.querySelector('.pt-viewer'); if (w) v.scrollTop += w.getBoundingClientRect().top - v.getBoundingClientRect().top - 10; return !!w; })()`);
     await sleep(400);

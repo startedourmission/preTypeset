@@ -204,6 +204,21 @@
 .pt-menu-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 10px;border-top:1px solid #eee;font-size:11px;color:#3c4043}
 .pt-menu-foot label{display:flex;align-items:center;gap:4px}
 .pt-menu-foot .pt-btn{height:22px;font-size:11px}
+/* PDF로 저장(인쇄): 조판 쪽만, 실제 판형 크기로 한 쪽씩 */
+@media print{
+  :host{all:initial}
+  .pt-panel{position:static!important;display:block!important;width:auto!important;height:auto!important;overflow:visible!important;background:#fff!important;border:0!important}
+  .pt-head,.pt-drive-row,.pt-drawer,.pt-foot,.pt-resize,.pt-measure,.pt-drop,.pt-empty,.pt-error,.pt-picker,.pt-spacer,.pt-grid{display:none!important}
+  .pt-viewer{display:block!important;overflow:visible!important;padding:0!important;height:auto!important}
+  .pt-pages{display:block!important;width:auto!important;min-width:0!important}
+  .pt-row{display:block!important;margin:0!important}
+  .pt-wrap{width:auto!important;height:auto!important;box-shadow:none!important;outline:none!important;break-after:page;page-break-after:always;overflow:hidden}
+  .pt-wrap::after{display:none!important}
+  .pt-wrap>.pt-page{position:relative!important;transform:none!important}
+  .pt-cursor{box-shadow:none!important}
+  .pt-picked,.pt-overset{outline:none!important}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
 /* 커서 위치 표시 */
 .pt-cursor{box-shadow:-5pt 0 0 -2pt rgb(26 115 232)}
 `;
@@ -215,6 +230,7 @@
     spread: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2.5" y="5" width="9.5" height="14" rx="1"/><rect x="12" y="5" width="9.5" height="14" rx="1"/></svg>',
     single: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="6.5" y="3.5" width="11" height="17" rx="1"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+    pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 19h14"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'
   };
   function iconBtn(name, title, onclick) {
@@ -245,6 +261,7 @@
     ui.driveRow = h('div', { class: 'pt-drive-row' }, ui.driveInput,
       h('button', { class: 'pt-btn pt-primary', onclick: () => importFromDrive(ui.driveInput.value) }, '불러오기'));
     const refBtn = iconBtn('refresh', '원고 다시 불러오기', () => refresh(true));
+    const pdfBtn = iconBtn('pdf', 'PDF로 저장 (인쇄 창에서 대상: PDF로 저장)', () => printPdf());
     const zoomOut = h('button', { class: 'pt-btn', title: '축소', onclick: () => setZoom(S.opts.zoom / 1.2) }, '−');
     const zoomIn = h('button', { class: 'pt-btn', title: '확대', onclick: () => setZoom(S.opts.zoom * 1.2) }, '+');
     ui.zoomLbl.addEventListener('click', () => setZoom(1));
@@ -263,7 +280,7 @@
       ui.resize,
       h('div', { class: 'pt-head' },
         h('span', { class: 'pt-logo' }),
-        ui.tplSel, upBtn, driveBtn, h('span', { class: 'pt-sep' }), refBtn, ui.spreadBtn,
+        ui.tplSel, upBtn, driveBtn, h('span', { class: 'pt-sep' }), refBtn, pdfBtn, ui.spreadBtn,
         zoomOut, ui.zoomLbl, zoomIn, ui.gearBtn, closeBtn, ui.file),
       ui.driveRow, ui.drawer, ui.viewer, ui.foot, ui.measure);
     ui.panel.querySelector('.pt-logo').innerHTML = '토인비 <b>조판</b>';
@@ -309,6 +326,42 @@
     new ResizeObserver(() => rescale()).observe(ui.viewer);
     ui.viewer.addEventListener('scroll', onViewerScroll, { passive: true });
     ui.viewer.addEventListener('click', onViewerClick);
+  }
+
+  // ---------- PDF로 저장 ----------
+  // 브라우저 인쇄로 조판 쪽만 판형 크기 그대로 내보낸다 (글자는 벡터, 내지 글꼴 포함).
+  // Docs 화면은 인쇄에서 숨기고, 패널 안 인쇄 CSS가 쪽을 한 장씩 실제 크기로 편다.
+  let printStyle = null;
+  function printMode(on) {
+    const de = document.documentElement;
+    if (on) {
+      const p = S.tpl.page;
+      if (!printStyle) { printStyle = document.createElement('style'); printStyle.id = 'pretypeset-print'; }
+      printStyle.textContent = '@media print{' +
+        '@page{size:' + p.width + 'pt ' + p.height + 'pt;margin:0}' +
+        'html.pt-print,html.pt-print body{width:auto!important;height:auto!important;min-width:0!important;overflow:visible!important;background:#fff!important}' +
+        'html.pt-print>:not(#pretypeset-host):not(head){display:none!important}' +
+        'html.pt-print>#pretypeset-host{display:block!important;position:static!important;width:auto!important;height:auto!important}}';
+      (document.head || de).append(printStyle);
+      de.classList.add('pt-print');
+    } else {
+      de.classList.remove('pt-print');
+      if (printStyle) printStyle.remove();
+    }
+  }
+
+  async function printPdf() {
+    if (!S.tpl || !S.pages.length) { setStatus('조판된 쪽이 없습니다.', false); return; }
+    if (S.laying) { setStatus('조판이 끝나면 다시 눌러 주세요.', false); return; }
+    closePicker();
+    await document.fonts.ready;
+    const title = document.title;
+    // 인쇄 창의 기본 파일 이름
+    document.title = title.replace(/\s*-\s*Google (Docs|문서)\s*$/i, '') + ' (조판)';
+    printMode(true);
+    const done = () => { printMode(false); document.title = title; window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    try { window.print(); } finally { setTimeout(done, 0); }
   }
 
   // ---------- Docs 화면 밀기 ----------
@@ -2270,6 +2323,6 @@
     injectBridge();
   }
 
-  globalThis.PTApp = { toggle, importFile, importFonts, importFromDrive, refresh, relayout, setZoom, state: S, sync: SY, _loadTemplate: loadTemplate, _onCursor: o => onCursor(o), _setModel: t => { SY.model = t; alignBlocks(); } };
+  globalThis.PTApp = { _printMode: printMode, toggle, importFile, importFonts, importFromDrive, refresh, relayout, setZoom, state: S, sync: SY, _loadTemplate: loadTemplate, _onCursor: o => onCursor(o), _setModel: t => { SY.model = t; alignBlocks(); } };
   init();
 })();
